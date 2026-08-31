@@ -79,6 +79,12 @@
   .user-name{ font-size:12.5px; font-weight:600; }
   .user-mail{ font-size:10.5px; color:var(--text-dimmer); }
   .user-chip-arrow{ font-size:9px; color:var(--text-dimmer); margin-left:1px; }
+  /* Mismo círculo con iniciales que .user-avatar (la "pastilla" de cuenta),
+     un poco más grande — se usa en cada fila del panel de administración. */
+  .admin-row-avatar{
+    width:40px; height:40px; border-radius:50%; background:var(--coral); color:#1c1408;
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex-shrink:0;
+  }
 
   /* Menú desplegable de la cuenta: solo lo que hace falta acá — nombre/correo
      arriba y "Cerrar sesión" abajo (no se agregan los otros ítems típicos de
@@ -231,6 +237,15 @@
     font-family:'IBM Plex Sans'; font-size:13.5px; margin-bottom:22px; background:#fff; color:#1c1810;
   }
   .modal-input:focus{ outline:none; border-color:var(--coral); box-shadow:0 0 0 3px var(--coral-dim); }
+  /* Ojito de mostrar/ocultar contraseña, para inputs de tipo password dentro
+     de un modal (fondo claro) — mismo comportamiento que .auth-eye-btn pero
+     con colores para fondo claro en vez de oscuro. */
+  .modal-eye-btn{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%); width:28px; height:28px;
+    background:none; border:none; color:#8a8270; font-size:14px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; border-radius:6px;
+  }
+  .modal-eye-btn:hover{ background:#f4f0e4; color:#1c1810; }
   .modal-actions{ display:flex; justify-content:flex-end; gap:10px; }
   .modal-btn{
     font-family:'IBM Plex Sans'; font-weight:600; font-size:13px; border-radius:6px;
@@ -1095,6 +1110,13 @@
           <p class="home-sub">Todas las cuentas registradas — restablecé la contraseña de cualquiera cuando te escriban pidiendo ayuda.</p>
         </div>
       </div>
+      <div style="display:flex; gap:10px; margin-bottom:20px; max-width:440px;">
+        <div style="position:relative; flex:1;">
+          <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-dimmer); pointer-events:none;">🔎</span>
+          <input type="text" class="auth-input" id="adminSearchInput" placeholder="Buscar por correo..." autocomplete="off" style="padding-left:38px;">
+        </div>
+        <button type="button" class="btn btn-coral" id="adminSearchBtn" style="flex-shrink:0;">Buscar</button>
+      </div>
       <div id="adminUsersBody"></div>
     </div>
 
@@ -1480,7 +1502,10 @@
     </div>
     <p class="modal-sub" id="adminResetSub">Elegí una contraseña nueva para esta cuenta. Se la vas a tener que pasar vos mismo a la persona.</p>
     <label class="modal-label">Contraseña nueva</label>
-    <input type="password" class="modal-input" id="adminResetPassword" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+    <div style="position:relative; width:100%; margin-bottom:22px;">
+      <input type="password" class="modal-input" id="adminResetPassword" placeholder="Mínimo 8 caracteres" autocomplete="new-password" style="margin-bottom:0; padding-right:38px;">
+      <button type="button" class="modal-eye-btn" id="adminResetEyeBtn" title="Mostrar/ocultar contraseña">👁</button>
+    </div>
     <div id="adminResetError" style="display:none; background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.35); color:#b23b3b; border-radius:8px; padding:9px 12px; font-size:12px; line-height:1.4; margin-top:-12px; margin-bottom:16px;"></div>
     <div class="modal-actions">
       <button class="modal-btn modal-btn-cancel" id="adminResetCancelBtn">Cancelar</button>
@@ -2291,8 +2316,15 @@ function renderMisLandings(){
 // a chequear esAdmin en cada pedido (ver admin.controller.ts), así que un
 // 403 acá siempre es posible (por ejemplo si a alguien le sacaron el acceso
 // de administrador en Railway mientras tenía esta pantalla abierta).
+// Última lista que trajo el backend, sin filtrar — filtrarUsuariosAdmin()
+// busca sobre esto mismo (en el navegador, sin volver a pedirle nada al
+// backend), así que buscar es instantáneo.
+let adminUsuariosCache = [];
+
 async function cargarUsuariosAdmin(){
   const body = document.getElementById('adminUsersBody');
+  const buscador = document.getElementById('adminSearchInput');
+  if(buscador) buscador.value = '';
   body.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><h3>Cargando usuarios…</h3></div>`;
   try{
     const resp = await apiFetch(BACKEND_URL + '/admin/usuarios');
@@ -2302,28 +2334,50 @@ async function cargarUsuariosAdmin(){
     }
     if(!resp.ok) throw new Error('No se pudo cargar la lista.');
     const usuarios = await resp.json();
-    renderAdminUsers(usuarios);
+    adminUsuariosCache = usuarios || [];
+    renderAdminUsers(adminUsuariosCache);
   }catch(e){
     body.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>No se pudo cargar la lista de usuarios</h3><p>Revisá tu conexión y probá de nuevo.</p></div>`;
   }
 }
 
-function renderAdminUsers(usuarios){
+// Busca, entre lo que ya se cargó en adminUsuariosCache, los correos que
+// contengan lo escrito en el buscador (sin importar mayúsculas/minúsculas).
+// Con el buscador vacío, vuelve a mostrar la lista completa.
+function filtrarUsuariosAdmin(){
+  const termino = (document.getElementById('adminSearchInput').value || '').trim().toLowerCase();
+  if(!termino){ renderAdminUsers(adminUsuariosCache); return; }
+  const filtrados = adminUsuariosCache.filter(u => (u.email || '').toLowerCase().includes(termino));
+  renderAdminUsers(filtrados, termino);
+}
+
+function renderAdminUsers(usuarios, terminoBusqueda){
   const body = document.getElementById('adminUsersBody');
   if(!usuarios || usuarios.length === 0){
-    body.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><h3>Todavía no hay ninguna cuenta registrada</h3></div>`;
+    body.innerHTML = terminoBusqueda
+      ? `<div class="empty-state"><div class="empty-icon">🔎</div><h3>No encontramos ninguna cuenta con ese correo</h3><p>Probá con otra parte del correo, o borrá la búsqueda para ver la lista completa.</p></div>`
+      : `<div class="empty-state"><div class="empty-icon">👥</div><h3>Todavía no hay ninguna cuenta registrada</h3></div>`;
     return;
   }
   body.innerHTML = usuarios.map(u=>{
+    // Mismo criterio que actualizarUserChip() para la "pastilla" de cuenta:
+    // si hay nombre/apellido cargados se usan para el nombre mostrado y las
+    // iniciales; si no, el nombre mostrado cae al principio del correo (para
+    // no repetir el correo completo dos veces en la misma fila).
     const nombreCompleto = [u.nombre, u.apellido].filter(Boolean).join(' ').trim();
     const email = u.email || '';
+    const nombreMostrado = nombreCompleto || (email ? email.split('@')[0] : 'Cuenta');
+    const iniciales = nombreCompleto
+      ? (u.nombre?.[0] || '') + (u.apellido?.[0] || u.nombre?.[1] || '')
+      : (email || '??').slice(0, 2);
     const fecha = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-CO', { year:'numeric', month:'short', day:'numeric' }) : '';
     return `
     <div class="mislandings-row" data-id="${u.id}" data-email="${email.replace(/"/g,'&quot;')}">
-      <div class="mislandings-swatch" style="background:var(--ink-3); display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--paper); font-size:14px;">${(email || '??').slice(0,2).toUpperCase()}</div>
+      <div class="admin-row-avatar">${iniciales.toUpperCase()}</div>
       <div style="flex:1; min-width:0;">
-        <div class="mislandings-name">${nombreCompleto || email}</div>
-        <div class="mislandings-meta">${email}${fecha ? ' · Registrado el ' + fecha : ''}</div>
+        <div class="mislandings-name">${nombreMostrado}</div>
+        <div class="mislandings-meta">${email}</div>
+        ${fecha ? `<div class="mislandings-meta" style="opacity:0.65; margin-top:1px;">Registrado el ${fecha}</div>` : ''}
       </div>
       <button type="button" class="btn btn-coral admin-reset-btn" style="flex-shrink:0;">Restablecer contraseña</button>
     </div>`;
@@ -2343,10 +2397,13 @@ let adminResetUsuarioId = null;
 function abrirModalResetAdmin(id, email){
   adminResetUsuarioId = id;
   document.getElementById('adminResetSub').textContent = `Elegí una contraseña nueva para ${email}. Se la vas a tener que pasar vos mismo a la persona (por WhatsApp, por ejemplo).`;
-  document.getElementById('adminResetPassword').value = '';
+  const passwordInput = document.getElementById('adminResetPassword');
+  passwordInput.value = '';
+  passwordInput.type = 'password'; // por si quedó en "texto" de la vez anterior que se usó el ojito
+  document.getElementById('adminResetEyeBtn').textContent = '👁';
   document.getElementById('adminResetError').style.display = 'none';
   document.getElementById('adminResetModal').classList.add('active');
-  setTimeout(()=> document.getElementById('adminResetPassword').focus(), 50);
+  setTimeout(()=> passwordInput.focus(), 50);
 }
 
 function cerrarModalResetAdmin(){
@@ -2394,6 +2451,18 @@ document.getElementById('adminResetModal').addEventListener('click', (e)=>{
 });
 document.getElementById('adminResetConfirmBtn').onclick = confirmarResetAdmin;
 document.getElementById('adminResetPassword').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') confirmarResetAdmin(); });
+document.getElementById('adminResetEyeBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('adminResetPassword');
+  const btn = document.getElementById('adminResetEyeBtn');
+  const mostrar = input.type === 'password';
+  input.type = mostrar ? 'text' : 'password';
+  btn.textContent = mostrar ? '🙈' : '👁';
+});
+document.getElementById('adminSearchBtn').onclick = filtrarUsuariosAdmin;
+document.getElementById('adminSearchInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') filtrarUsuariosAdmin(); });
+// Buscar también mientras se escribe (no hace falta esperar al botón ni al
+// Enter) — al vaciar el campo, vuelve sola a mostrar la lista completa.
+document.getElementById('adminSearchInput').addEventListener('input', filtrarUsuariosAdmin);
 
 // ---------------- TABS ----------------
 document.querySelectorAll('.tab-btn').forEach(btn=>{
