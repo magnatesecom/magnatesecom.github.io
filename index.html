@@ -98,6 +98,14 @@
     font-family:'IBM Plex Sans'; text-align:left;
   }
   .user-dropdown-logout:hover{ background:#fdf0ef; }
+  /* Solo aparece si la cuenta es de administrador (ver ADMIN_EMAILS en el
+     backend) — ver actualizarUserChip() más abajo. */
+  .user-dropdown-admin{
+    width:100%; display:flex; align-items:center; gap:8px; padding:12px 16px; box-sizing:border-box;
+    background:none; border:none; color:#1c1810; font-size:12.5px; font-weight:600; cursor:pointer;
+    font-family:'IBM Plex Sans'; text-align:left; border-bottom:1px solid #f0ead8;
+  }
+  .user-dropdown-admin:hover{ background:#f4f0e4; }
 
   /* ---------- Sidebar ---------- */
   .sidebar{
@@ -990,50 +998,18 @@
       <div class="auth-toggle-row" id="authToggleModeBtn">¿No tenés cuenta? <button type="button" class="auth-toggle-link" id="authToggleModeLink">Crear cuenta</button></div>
     </div>
 
-    <!-- Formulario de "recuperar contraseña": pide el correo y manda el
-         pedido a POST /auth/olvide-password. Siempre termina mostrando el
-         mismo mensaje de éxito, exista o no una cuenta con ese correo (así
-         no se puede usar esto para averiguar qué correos están registrados
-         — ver la nota igual en auth.service.ts). -->
+    <!-- "Recuperar contraseña": por ahora esto NO es automático (ver la nota
+         grande en auth.service.ts) — en vez de pedir el correo y mandar un
+         link, se muestra un mensaje fijo con dos links directos a soporte
+         (WhatsApp y correo) para que un administrador le cambie la
+         contraseña a mano desde el panel de administración. -->
     <div id="authFormRecuperar" style="display:none; width:100%; flex-direction:column; align-items:center;">
-      <div id="authRecuperarPaso1" style="width:100%; display:flex; flex-direction:column; align-items:center;">
-        <label class="auth-label">Correo electrónico</label>
-        <div class="auth-input-wrap">
-          <span class="auth-input-icon">✉</span>
-          <input type="email" class="auth-input" id="authRecuperarEmail" placeholder="email@ejemplo.com" autocomplete="username" style="padding-right:14px;">
-        </div>
-        <button type="button" class="auth-submit-btn" id="authRecuperarSubmitBtn">Enviar link de recuperación</button>
+      <div style="width:100%; text-align:center; color:var(--paper); font-size:13px; line-height:1.7;">
+        Por ahora el cambio de contraseña lo hace nuestro equipo de soporte directamente. Escribinos por cualquiera de estos dos medios y te ayudamos a recuperar el acceso:
       </div>
-      <div id="authRecuperarExito" style="display:none; width:100%; text-align:center; color:var(--paper); font-size:13px; line-height:1.6;">
-        Si ese correo tiene una cuenta con nosotros, te mandamos un link para elegir una contraseña nueva. Revisá tu bandeja de entrada (y la carpeta de spam).
-      </div>
+      <a href="https://wa.me/573237657625" target="_blank" rel="noopener" class="auth-submit-btn" style="display:flex; align-items:center; justify-content:center; text-decoration:none; margin-top:18px; box-sizing:border-box;">💬 Escribir por WhatsApp</a>
+      <a href="mailto:soporte.magnatesecom@gmail.com" class="auth-submit-btn" style="display:flex; align-items:center; justify-content:center; text-decoration:none; margin-top:12px; box-sizing:border-box; background:transparent; border:1.5px solid var(--paper); color:var(--paper);">✉ Escribir al correo de soporte</a>
       <div class="auth-toggle-row"><button type="button" class="auth-toggle-link" id="authRecuperarVolverBtn">Volver a iniciar sesión</button></div>
-    </div>
-
-    <!-- Formulario de "elegir nueva contraseña": se muestra en vez de todo
-         lo demás cuando la página se abre con "?resetToken=..." en la URL
-         (el link que manda el correo de recuperación) — ver la detección al
-         final del bloque de CUENTAS más abajo. -->
-    <div id="authFormRestablecer" style="display:none; width:100%; flex-direction:column; align-items:center;">
-      <div id="authRestablecerPaso1" style="width:100%; display:flex; flex-direction:column; align-items:center;">
-        <label class="auth-label">Nueva contraseña</label>
-        <div class="auth-input-wrap">
-          <span class="auth-input-icon">🔒</span>
-          <input type="password" class="auth-input" id="authRestablecerPassword" placeholder="Mínimo 8 caracteres" autocomplete="new-password" style="padding-right:38px;">
-          <button type="button" class="auth-eye-btn" id="authEyeBtnRestablecer" title="Mostrar/ocultar contraseña">👁</button>
-        </div>
-        <label class="auth-label">Confirmar nueva contraseña</label>
-        <div class="auth-input-wrap">
-          <span class="auth-input-icon">🔒</span>
-          <input type="password" class="auth-input" id="authRestablecerConfirmar" placeholder="Repite tu contraseña" autocomplete="new-password" style="padding-right:38px;">
-          <button type="button" class="auth-eye-btn" id="authEyeBtnRestablecerConfirmar" title="Mostrar/ocultar contraseña">👁</button>
-        </div>
-        <button type="button" class="auth-submit-btn" id="authRestablecerSubmitBtn">Guardar nueva contraseña</button>
-      </div>
-      <div id="authRestablecerExito" style="display:none; width:100%; text-align:center; color:var(--paper); font-size:13px; line-height:1.6;">
-        Listo — tu contraseña se actualizó. Ya podés iniciar sesión con la nueva.
-      </div>
-      <div class="auth-toggle-row" id="authRestablecerVolverRow" style="display:none;"><button type="button" class="auth-toggle-link" id="authRestablecerVolverBtn">Ir a iniciar sesión</button></div>
     </div>
   </div>
 </div>
@@ -1078,6 +1054,7 @@
             <div class="user-dropdown-name" id="userDropdownName">Cuenta</div>
             <div class="user-dropdown-mail" id="userDropdownMail"></div>
           </div>
+          <button type="button" class="user-dropdown-admin" id="userDropdownAdminBtn" style="display:none;"><span>🛡</span> Panel de administración</button>
           <button type="button" class="user-dropdown-logout" id="userDropdownLogoutBtn"><span>⏻</span> Cerrar sesión</button>
         </div>
       </div>
@@ -1104,6 +1081,21 @@
         </div>
       </div>
       <div id="misLandingsBody"></div>
+    </div>
+
+    <!-- VIEW: ADMIN (solo administradores — ver ADMIN_EMAILS en el backend
+         y actualizarUserChip() más abajo, que muestra u oculta el botón que
+         lleva acá dentro del menú de cuenta). Lista todos los usuarios
+         registrados y deja restablecerles la contraseña a mano — ver
+         admin.controller.ts. -->
+    <div class="content" id="view-admin" style="display:none;">
+      <div class="home-header-row">
+        <div>
+          <h2 class="home-title">Panel de administración</h2>
+          <p class="home-sub">Todas las cuentas registradas — restablecé la contraseña de cualquiera cuando te escriban pidiendo ayuda.</p>
+        </div>
+      </div>
+      <div id="adminUsersBody"></div>
     </div>
 
     <!-- VIEW: WORKSPACE (producto) -->
@@ -1479,6 +1471,24 @@
 </div>
 
 <!-- MODAL: Crear producto -->
+<!-- MODAL: Restablecer contraseña (panel de administración) -->
+<div class="modal-overlay" id="adminResetModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 class="modal-title">Restablecer contraseña</h3>
+      <button class="modal-close" id="adminResetCloseBtn">✕</button>
+    </div>
+    <p class="modal-sub" id="adminResetSub">Elegí una contraseña nueva para esta cuenta. Se la vas a tener que pasar vos mismo a la persona.</p>
+    <label class="modal-label">Contraseña nueva</label>
+    <input type="password" class="modal-input" id="adminResetPassword" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+    <div id="adminResetError" style="display:none; background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.35); color:#b23b3b; border-radius:8px; padding:9px 12px; font-size:12px; line-height:1.4; margin-top:-12px; margin-bottom:16px;"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" id="adminResetCancelBtn">Cancelar</button>
+      <button class="modal-btn modal-btn-create" id="adminResetConfirmBtn">Guardar contraseña</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="productModal">
   <div class="modal-card">
     <div class="modal-head">
@@ -1488,6 +1498,7 @@
     <p class="modal-sub">Ingresa los detalles del producto para comenzar a generar secciones de landing</p>
     <label class="modal-label">Nombre del Producto</label>
     <input type="text" class="modal-input" id="modalProductName" placeholder="Ej: Suplemento Vitamínico">
+    <div id="modalProductError" style="display:none; background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.35); color:#b23b3b; border-radius:8px; padding:9px 12px; font-size:12px; line-height:1.4; margin-top:10px;"></div>
     <div class="modal-actions">
       <button class="modal-btn modal-btn-cancel" id="modalCancelBtn">Cancelar</button>
       <button class="modal-btn modal-btn-create" id="modalCreateBtn" disabled>Crear Producto</button>
@@ -2021,6 +2032,7 @@ function goToView(view){
   currentView = view;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-mislandings').style.display = view==='mislandings' ? 'block' : 'none';
+  document.getElementById('view-admin').style.display = view==='admin' ? 'block' : 'none';
   document.getElementById('view-workspace').style.display = view==='workspace' ? 'block' : 'none';
   document.getElementById('navLanding').classList.toggle('active', view==='home' || view==='workspace');
   document.getElementById('navMisLandings').classList.toggle('active', view==='mislandings');
@@ -2040,6 +2052,7 @@ function createProduct(){
   const input = document.getElementById('modalProductName');
   input.value = '';
   document.getElementById('modalCreateBtn').disabled = true;
+  document.getElementById('modalProductError').style.display = 'none';
   overlay.classList.add('active');
   setTimeout(()=> input.focus(), 50);
 }
@@ -2060,9 +2073,50 @@ document.getElementById('productModal').addEventListener('click', (e)=>{
   if(e.target.id === 'productModal') closeProductModal();
 });
 
-function confirmCreateProduct(){
+// Antes esta función solo empujaba el nombre a PRODUCTS (memoria del
+// navegador) y pasaba directo al workspace — nunca avisaba nada al backend.
+// Si el estudiante no llegaba a subir una foto ni a generar una sección para
+// ese producto (lo único que sí se guarda, ver guardarFotosProductoBackend /
+// POST /productos/foto), el producto quedaba solo en memoria: al recargar la
+// página, cerrar sesión, o simplemente volver más tarde, PRODUCTS se vuelve a
+// armar leyendo lo que hay guardado en el backend (ver
+// cargarFotosProductoDesdeBackend y las otras cargarXDesdeBackend) — y como
+// nunca hubo nada guardado ahí, el producto "desaparecía" sin ningún aviso.
+// Ahora se guarda una fila vacía (sin fotos todavía) apenas se crea, así
+// queda registrado de entrada y no se pierde.
+async function confirmCreateProduct(){
   const name = document.getElementById('modalProductName').value.trim();
   if(!name) return;
+  const errBox = document.getElementById('modalProductError');
+  errBox.style.display = 'none';
+  // Ya existe un producto con ese nombre en esta cuenta: si se dejara seguir,
+  // el guardado de más abajo pisaría (fotos:[null,null,null]) las fotos que
+  // ese producto ya tuviera guardadas — mejor avisar y no tocar nada.
+  if(PRODUCTS.includes(name)){
+    errBox.textContent = 'Ya tenés un producto con ese nombre — elegí otro.';
+    errBox.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('modalCreateBtn');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Creando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/productos/foto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombreProducto: name, fotos: [null, null, null] }),
+    });
+    if(!resp.ok) throw new Error('No se pudo guardar el producto.');
+  }catch(e){
+    errBox.textContent = 'No se pudo crear el producto — probá de nuevo en un momento.';
+    errBox.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+    return;
+  }
+  btn.disabled = false;
+  btn.textContent = textoOriginal;
   PRODUCTS.push(name);
   currentProduct = name;
   closeProductModal();
@@ -2230,6 +2284,116 @@ function renderMisLandings(){
     };
   });
 }
+
+// ---------------- PANEL DE ADMINISTRACIÓN ----------------
+// Solo llega acá quien tiene el botón "Panel de administración" visible en
+// el menú de cuenta (ver actualizarUserChip) — pero igual el backend vuelve
+// a chequear esAdmin en cada pedido (ver admin.controller.ts), así que un
+// 403 acá siempre es posible (por ejemplo si a alguien le sacaron el acceso
+// de administrador en Railway mientras tenía esta pantalla abierta).
+async function cargarUsuariosAdmin(){
+  const body = document.getElementById('adminUsersBody');
+  body.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><h3>Cargando usuarios…</h3></div>`;
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/admin/usuarios');
+    if(resp.status === 403){
+      body.innerHTML = `<div class="empty-state"><div class="empty-icon">🚫</div><h3>No tenés permiso para ver esto</h3><p>Esta cuenta no está en la lista de administradores.</p></div>`;
+      return;
+    }
+    if(!resp.ok) throw new Error('No se pudo cargar la lista.');
+    const usuarios = await resp.json();
+    renderAdminUsers(usuarios);
+  }catch(e){
+    body.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>No se pudo cargar la lista de usuarios</h3><p>Revisá tu conexión y probá de nuevo.</p></div>`;
+  }
+}
+
+function renderAdminUsers(usuarios){
+  const body = document.getElementById('adminUsersBody');
+  if(!usuarios || usuarios.length === 0){
+    body.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><h3>Todavía no hay ninguna cuenta registrada</h3></div>`;
+    return;
+  }
+  body.innerHTML = usuarios.map(u=>{
+    const nombreCompleto = [u.nombre, u.apellido].filter(Boolean).join(' ').trim();
+    const email = u.email || '';
+    const fecha = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-CO', { year:'numeric', month:'short', day:'numeric' }) : '';
+    return `
+    <div class="mislandings-row" data-id="${u.id}" data-email="${email.replace(/"/g,'&quot;')}">
+      <div class="mislandings-swatch" style="background:var(--ink-3); display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--paper); font-size:14px;">${(email || '??').slice(0,2).toUpperCase()}</div>
+      <div style="flex:1; min-width:0;">
+        <div class="mislandings-name">${nombreCompleto || email}</div>
+        <div class="mislandings-meta">${email}${fecha ? ' · Registrado el ' + fecha : ''}</div>
+      </div>
+      <button type="button" class="btn btn-coral admin-reset-btn" style="flex-shrink:0;">Restablecer contraseña</button>
+    </div>`;
+  }).join('');
+  body.querySelectorAll('.admin-reset-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const row = btn.closest('.mislandings-row');
+      abrirModalResetAdmin(row.dataset.id, row.dataset.email);
+    };
+  });
+}
+
+// Id del usuario que se está por restablecer — lo guarda abrirModalResetAdmin
+// y lo usa confirmarResetAdmin() al mandar el pedido al backend.
+let adminResetUsuarioId = null;
+
+function abrirModalResetAdmin(id, email){
+  adminResetUsuarioId = id;
+  document.getElementById('adminResetSub').textContent = `Elegí una contraseña nueva para ${email}. Se la vas a tener que pasar vos mismo a la persona (por WhatsApp, por ejemplo).`;
+  document.getElementById('adminResetPassword').value = '';
+  document.getElementById('adminResetError').style.display = 'none';
+  document.getElementById('adminResetModal').classList.add('active');
+  setTimeout(()=> document.getElementById('adminResetPassword').focus(), 50);
+}
+
+function cerrarModalResetAdmin(){
+  document.getElementById('adminResetModal').classList.remove('active');
+  adminResetUsuarioId = null;
+}
+
+async function confirmarResetAdmin(){
+  const password = document.getElementById('adminResetPassword').value;
+  const err = document.getElementById('adminResetError');
+  err.style.display = 'none';
+  if(!password || password.length < 8){
+    err.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+    err.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('adminResetConfirmBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/admin/usuarios/' + adminResetUsuarioId + '/restablecer-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudo restablecer la contraseña.');
+    }
+    cerrarModalResetAdmin();
+  }catch(e){
+    err.textContent = e?.message || 'No se pudo restablecer la contraseña.';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+document.getElementById('adminResetCloseBtn').onclick = cerrarModalResetAdmin;
+document.getElementById('adminResetCancelBtn').onclick = cerrarModalResetAdmin;
+document.getElementById('adminResetModal').addEventListener('click', (e)=>{
+  if(e.target.id === 'adminResetModal') cerrarModalResetAdmin();
+});
+document.getElementById('adminResetConfirmBtn').onclick = confirmarResetAdmin;
+document.getElementById('adminResetPassword').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') confirmarResetAdmin(); });
 
 // ---------------- TABS ----------------
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -3555,10 +3719,10 @@ const BACKEND_URL = 'https://magnates-ecom-backend-production.up.railway.app';
 const AUTH_TOKEN_KEY = 'ecomMagnatesToken';
 const AUTH_EMAIL_KEY = 'ecomMagnatesEmail';
 let authModoRegistro = false;
-// Token de "?resetToken=..." en la URL (el link que manda el correo de
-// recuperación) — se guarda al arrancar la página, ver la detección al
-// final de este bloque de CUENTAS.
-let authResetToken = null;
+// Si la cuenta conectada es administradora — ver actualizarUserChip() y
+// admin.controller.ts. Controla si se muestra el botón "Panel de
+// administración" en el menú de cuenta.
+let usuarioActualEsAdmin = false;
 
 function obtenerTokenGuardado(){
   try{ return localStorage.getItem(AUTH_TOKEN_KEY); }catch{ return null; }
@@ -3636,31 +3800,19 @@ function actualizarModoAuth(){
   document.getElementById('authForgotRow').style.display = registrando ? 'none' : 'block';
 }
 
-// Cambia entre las tres "vistas" que puede mostrar #authGate: el formulario
-// normal de login/registro, el de pedir el link de recuperación, y el de
-// elegir una contraseña nueva (este último solo se llega a través del link
-// que manda el correo). Solo una está visible a la vez — las otras dos
-// quedan en display:none.
+// Cambia entre las dos "vistas" que puede mostrar #authGate: el formulario
+// normal de login/registro, y el mensaje de "escribinos a soporte" que
+// reemplaza al viejo formulario de recuperación por correo. Solo una está
+// visible a la vez.
 function mostrarFormularioAuth(vista){
   document.getElementById('authFormNormal').style.display = vista === 'normal' ? 'flex' : 'none';
   document.getElementById('authFormRecuperar').style.display = vista === 'recuperar' ? 'flex' : 'none';
-  document.getElementById('authFormRestablecer').style.display = vista === 'restablecer' ? 'flex' : 'none';
   document.getElementById('authError').style.display = 'none';
   const titulo = document.getElementById('authTitle');
   const subtitulo = document.getElementById('authSubtitle');
   if(vista === 'recuperar'){
-    // Siempre arranca desde el paso 1 (pedir el correo), aunque ya se haya
-    // usado antes en esta misma visita a la página.
-    document.getElementById('authRecuperarPaso1').style.display = 'flex';
-    document.getElementById('authRecuperarExito').style.display = 'none';
-    document.getElementById('authRecuperarEmail').value = '';
     titulo.textContent = 'Recuperar contraseña';
     titulo.style.marginBottom = '4px';
-    subtitulo.textContent = 'Ingresá tu correo y te mandamos un link para elegir una contraseña nueva.';
-    subtitulo.style.display = 'block';
-  } else if(vista === 'restablecer'){
-    titulo.textContent = 'Elegí tu nueva contraseña';
-    titulo.style.marginBottom = '22px';
     subtitulo.style.display = 'none';
   } else {
     actualizarModoAuth();
@@ -3694,20 +3846,6 @@ document.getElementById('authEyeBtnConfirmar').addEventListener('click', ()=>{
   input.type = mostrar ? 'text' : 'password';
   btn.textContent = mostrar ? '🙈' : '👁';
 });
-document.getElementById('authEyeBtnRestablecer').addEventListener('click', ()=>{
-  const input = document.getElementById('authRestablecerPassword');
-  const btn = document.getElementById('authEyeBtnRestablecer');
-  const mostrar = input.type === 'password';
-  input.type = mostrar ? 'text' : 'password';
-  btn.textContent = mostrar ? '🙈' : '👁';
-});
-document.getElementById('authEyeBtnRestablecerConfirmar').addEventListener('click', ()=>{
-  const input = document.getElementById('authRestablecerConfirmar');
-  const btn = document.getElementById('authEyeBtnRestablecerConfirmar');
-  const mostrar = input.type === 'password';
-  input.type = mostrar ? 'text' : 'password';
-  btn.textContent = mostrar ? '🙈' : '👁';
-});
 
 // Refleja quién está conectado, tanto en la "pastilla" de arriba a la
 // derecha como en el menú desplegable que se abre al tocarla. Recibe el
@@ -3729,6 +3867,14 @@ function actualizarUserChip(usuario){
   set('userChipAvatar', iniciales.toUpperCase());
   set('userDropdownName', nombreMostrado);
   set('userDropdownMail', email);
+
+  // Guardado global para poder consultarlo en cualquier lado (ver
+  // goToView/cargarUsuariosAdmin) — y el botón de "Panel de administración"
+  // en el menú de cuenta solo aparece si el backend marcó esta cuenta como
+  // administradora (ver ADMIN_EMAILS en auth.service.ts).
+  usuarioActualEsAdmin = !!usuario?.esAdmin;
+  const adminBtn = document.getElementById('userDropdownAdminBtn');
+  if(adminBtn) adminBtn.style.display = usuarioActualEsAdmin ? 'flex' : 'none';
 }
 
 function cerrarSesion(){
@@ -3794,94 +3940,6 @@ async function enviarAuth(){
   }
 }
 
-// Pide el link de recuperación para el correo ingresado (POST
-// /auth/olvide-password). El backend siempre contesta { ok: true } exista o
-// no una cuenta con ese correo — acá se refleja eso mismo mostrando siempre
-// el mismo mensaje de éxito, para no confirmarle a nadie qué correos están
-// registrados.
-async function enviarRecuperacion(){
-  const email = document.getElementById('authRecuperarEmail').value.trim();
-  const err = document.getElementById('authError');
-  err.style.display = 'none';
-  if(!email){
-    err.textContent = 'Ingresá tu correo.';
-    err.style.display = 'block';
-    return;
-  }
-  const btn = document.getElementById('authRecuperarSubmitBtn');
-  const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ Enviando…';
-  try{
-    await fetch(BACKEND_URL + '/auth/olvide-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    document.getElementById('authRecuperarPaso1').style.display = 'none';
-    document.getElementById('authRecuperarExito').style.display = 'block';
-  }catch(e){
-    err.textContent = 'No se pudo enviar la solicitud — probá de nuevo en un momento.';
-    err.style.display = 'block';
-  }finally{
-    btn.disabled = false;
-    btn.textContent = original;
-  }
-}
-
-// Guarda la contraseña nueva usando el token que viene en el link del
-// correo (POST /auth/restablecer-password). Si el token es inválido o ya
-// venció (dura 1 hora), el backend contesta con un error que se muestra tal
-// cual — ahí la persona tiene que volver a pedir un link nuevo.
-async function enviarRestablecer(){
-  const password = document.getElementById('authRestablecerPassword').value;
-  const confirmar = document.getElementById('authRestablecerConfirmar').value;
-  const err = document.getElementById('authError');
-  err.style.display = 'none';
-  if(!password || password.length < 8){
-    err.textContent = 'La contraseña debe tener al menos 8 caracteres.';
-    err.style.display = 'block';
-    return;
-  }
-  if(password !== confirmar){
-    err.textContent = 'Las contraseñas no coinciden.';
-    err.style.display = 'block';
-    return;
-  }
-  const btn = document.getElementById('authRestablecerSubmitBtn');
-  const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ Guardando…';
-  try{
-    const resp = await fetch(BACKEND_URL + '/auth/restablecer-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: authResetToken, password }),
-    });
-    const data = await resp.json().catch(()=> ({}));
-    if(!resp.ok){
-      throw new Error(data?.message || 'No se pudo restablecer la contraseña. Probá pedir un link nuevo.');
-    }
-    document.getElementById('authRestablecerPaso1').style.display = 'none';
-    document.getElementById('authRestablecerExito').style.display = 'block';
-    document.getElementById('authRestablecerVolverRow').style.display = 'block';
-    // Saca el token de la URL para que no quede dando vueltas ni se pueda
-    // volver a usar por accidente recargando la página.
-    try{
-      const url = new URL(window.location.href);
-      url.searchParams.delete('resetToken');
-      window.history.replaceState({}, '', url.toString());
-    }catch{}
-  }catch(e){
-    err.textContent = e?.message || 'No se pudo restablecer la contraseña. Probá pedir un link nuevo.';
-    err.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = original;
-    return;
-  }
-  btn.disabled = false;
-  btn.textContent = original;
-}
 
 // Deja entrar al taller ya con la sesión confirmada: oculta la pantalla de
 // entrada, pinta el correo (y nombre, si lo tiene) en la esquina, y recién
@@ -3928,7 +3986,7 @@ document.getElementById('authToggleModeBtn').onclick = ()=>{
 document.getElementById('authPassword').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enviarAuth(); });
 document.getElementById('authEmail').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enviarAuth(); });
 
-// "¿Olvidaste tu contraseña?" y los "volver" de cada vista nueva.
+// "¿Olvidaste tu contraseña?" y el "volver" del mensaje de soporte.
 document.getElementById('authForgotLink').addEventListener('click', ()=>{
   mostrarFormularioAuth('recuperar');
 });
@@ -3936,15 +3994,6 @@ document.getElementById('authRecuperarVolverBtn').addEventListener('click', ()=>
   authModoRegistro = false;
   mostrarFormularioAuth('normal');
 });
-document.getElementById('authRestablecerVolverBtn').addEventListener('click', ()=>{
-  authModoRegistro = false;
-  mostrarFormularioAuth('normal');
-});
-document.getElementById('authRecuperarSubmitBtn').onclick = enviarRecuperacion;
-document.getElementById('authRecuperarEmail').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enviarRecuperacion(); });
-document.getElementById('authRestablecerSubmitBtn').onclick = enviarRestablecer;
-document.getElementById('authRestablecerPassword').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enviarRestablecer(); });
-document.getElementById('authRestablecerConfirmar').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') enviarRestablecer(); });
 
 // Menú de cuenta: tocar la "pastilla" abre/cierra el desplegable (nombre +
 // correo arriba, "Cerrar sesión" abajo — nada más, el taller todavía no
@@ -3958,6 +4007,11 @@ document.getElementById('userChip').addEventListener('click', (e)=>{
 document.getElementById('userDropdownLogoutBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
   cerrarSesion();
+});
+document.getElementById('userDropdownAdminBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  userDropdownEl.style.display = 'none';
+  goToView('admin');
 });
 document.addEventListener('click', ()=>{ userDropdownEl.style.display = 'none'; });
 
@@ -5230,6 +5284,7 @@ function renderAll(){
   renderCredits();
   if(currentView === 'home'){ renderHome(); return; }
   if(currentView === 'mislandings'){ renderMisLandings(); return; }
+  if(currentView === 'admin'){ cargarUsuariosAdmin(); return; }
   // workspace
   document.getElementById('productTitle').textContent = currentProduct;
   if(currentProduct !== lastRenderedProduct){
@@ -6502,20 +6557,7 @@ async function inicializarDesdeBackend(){
   await cargarFotosProductoDesdeBackend();
 }
 
-// Si la página se abrió con "?resetToken=..." en la URL (el link que manda
-// el correo de recuperación), se muestra directo la pantalla de "elegir
-// nueva contraseña" en vez del chequeo normal de sesión guardada — tiene
-// prioridad porque es justo lo que la persona vino a hacer, tenga o no una
-// sesión guardada en este navegador.
-const authParamsUrl = new URLSearchParams(window.location.search);
-const authTokenDesdeUrl = authParamsUrl.get('resetToken');
-if(authTokenDesdeUrl){
-  authResetToken = authTokenDesdeUrl;
-  mostrarAuthGate();
-  mostrarFormularioAuth('restablecer');
-}else{
-  verificarSesionGuardada();
-}
+verificarSesionGuardada();
 </script>
 </body>
 </html>
