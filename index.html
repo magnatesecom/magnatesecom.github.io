@@ -1069,6 +1069,7 @@
             <div class="user-dropdown-name" id="userDropdownName">Cuenta</div>
             <div class="user-dropdown-mail" id="userDropdownMail"></div>
           </div>
+          <button type="button" class="user-dropdown-admin" id="userDropdownPerfilBtn"><span>👤</span> Mi Perfil</button>
           <button type="button" class="user-dropdown-admin" id="userDropdownAdminBtn" style="display:none;"><span>🛡</span> Panel de administración</button>
           <button type="button" class="user-dropdown-logout" id="userDropdownLogoutBtn"><span>⏻</span> Cerrar sesión</button>
         </div>
@@ -1118,6 +1119,77 @@
         <button type="button" class="btn btn-coral" id="adminSearchBtn" style="flex-shrink:0;">Buscar</button>
       </div>
       <div id="adminUsersBody"></div>
+    </div>
+
+    <!-- VIEW: MI PERFIL -->
+    <div class="content" id="view-perfil" style="display:none;">
+      <div class="home-header-row">
+        <div>
+          <h2 class="home-title">Mi Perfil</h2>
+          <p class="home-sub">Administrá la información de tu cuenta.</p>
+        </div>
+      </div>
+
+      <!-- Nombre / apellido / correo -->
+      <div class="intro-card" style="max-width:640px;">
+        <div class="intro-head">
+          <div class="intro-icon">👤</div>
+          <div>
+            <h3>Perfil</h3>
+            <p>Actualizá tu nombre, apellido y correo.</p>
+          </div>
+        </div>
+        <div id="perfilError" class="auth-error" style="display:none;"></div>
+        <div id="perfilExito" style="display:none; width:100%; background:rgba(75,143,99,0.14); border:1px solid rgba(75,143,99,0.4); color:#8fd6a7; border-radius:8px; padding:10px 13px; font-size:12.5px; line-height:1.4; margin-bottom:16px; box-sizing:border-box;"></div>
+        <div class="auth-row-2">
+          <div style="flex:1;">
+            <label class="auth-label">Nombre</label>
+            <input type="text" class="auth-input" id="perfilNombre" placeholder="Nombre" autocomplete="given-name" style="padding-left:14px; margin-bottom:16px;">
+          </div>
+          <div style="flex:1;">
+            <label class="auth-label">Apellido</label>
+            <input type="text" class="auth-input" id="perfilApellido" placeholder="Apellido" autocomplete="family-name" style="padding-left:14px; margin-bottom:16px;">
+          </div>
+        </div>
+        <label class="auth-label">Correo electrónico</label>
+        <input type="email" class="auth-input" id="perfilEmail" placeholder="email@ejemplo.com" autocomplete="username" style="padding-left:14px; margin-bottom:20px;">
+        <button type="button" class="btn btn-coral" id="perfilGuardarBtn">Guardar cambios</button>
+      </div>
+
+      <!-- Cambiar contraseña -->
+      <div class="intro-card" style="max-width:640px;">
+        <div class="intro-head">
+          <div class="intro-icon">🔒</div>
+          <div>
+            <h3>Cambiar Contraseña</h3>
+            <p>Actualizá la contraseña de tu cuenta.</p>
+          </div>
+        </div>
+        <div id="perfilPasswordError" class="auth-error" style="display:none;"></div>
+        <div id="perfilPasswordExito" style="display:none; width:100%; background:rgba(75,143,99,0.14); border:1px solid rgba(75,143,99,0.4); color:#8fd6a7; border-radius:8px; padding:10px 13px; font-size:12.5px; line-height:1.4; margin-bottom:16px; box-sizing:border-box;"></div>
+        <label class="auth-label">Contraseña actual</label>
+        <div style="position:relative; width:100%; margin-bottom:16px;">
+          <input type="password" class="auth-input" id="perfilPasswordActual" placeholder="Ingresá tu contraseña actual" autocomplete="current-password" style="padding-left:14px; padding-right:38px;">
+          <button type="button" class="auth-eye-btn" id="perfilEyeActual" title="Mostrar/ocultar contraseña">👁</button>
+        </div>
+        <div class="auth-row-2">
+          <div style="flex:1;">
+            <label class="auth-label">Nueva contraseña</label>
+            <div style="position:relative; width:100%;">
+              <input type="password" class="auth-input" id="perfilPasswordNueva" placeholder="Mínimo 8 caracteres" autocomplete="new-password" style="padding-left:14px; padding-right:38px;">
+              <button type="button" class="auth-eye-btn" id="perfilEyeNueva" title="Mostrar/ocultar contraseña">👁</button>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <label class="auth-label">Confirmar nueva contraseña</label>
+            <div style="position:relative; width:100%;">
+              <input type="password" class="auth-input" id="perfilPasswordConfirmar" placeholder="Repetí tu contraseña nueva" autocomplete="new-password" style="padding-left:14px; padding-right:38px;">
+              <button type="button" class="auth-eye-btn" id="perfilEyeConfirmar" title="Mostrar/ocultar contraseña">👁</button>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-coral" id="perfilCambiarPasswordBtn" style="margin-top:20px;">Cambiar Contraseña</button>
+      </div>
     </div>
 
     <!-- VIEW: WORKSPACE (producto) -->
@@ -2058,6 +2130,7 @@ function goToView(view){
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-mislandings').style.display = view==='mislandings' ? 'block' : 'none';
   document.getElementById('view-admin').style.display = view==='admin' ? 'block' : 'none';
+  document.getElementById('view-perfil').style.display = view==='perfil' ? 'block' : 'none';
   document.getElementById('view-workspace').style.display = view==='workspace' ? 'block' : 'none';
   document.getElementById('navLanding').classList.toggle('active', view==='home' || view==='workspace');
   document.getElementById('navMisLandings').classList.toggle('active', view==='mislandings');
@@ -2463,6 +2536,139 @@ document.getElementById('adminSearchInput').addEventListener('keydown', (e)=>{ i
 // Buscar también mientras se escribe (no hace falta esperar al botón ni al
 // Enter) — al vaciar el campo, vuelve sola a mostrar la lista completa.
 document.getElementById('adminSearchInput').addEventListener('input', filtrarUsuariosAdmin);
+
+// ---------------- MI PERFIL ----------------
+// Rellena los campos con lo que ya se sabe de la cuenta conectada
+// (usuarioActual, ver actualizarUserChip) y limpia los mensajes de
+// error/éxito y los campos de contraseña de la vez anterior — se llama cada
+// vez que se entra a esta vista (ver renderAll).
+function cargarPerfil(){
+  document.getElementById('perfilNombre').value = usuarioActual?.nombre || '';
+  document.getElementById('perfilApellido').value = usuarioActual?.apellido || '';
+  document.getElementById('perfilEmail').value = usuarioActual?.email || '';
+  document.getElementById('perfilError').style.display = 'none';
+  document.getElementById('perfilExito').style.display = 'none';
+
+  document.getElementById('perfilPasswordActual').value = '';
+  document.getElementById('perfilPasswordNueva').value = '';
+  document.getElementById('perfilPasswordConfirmar').value = '';
+  document.getElementById('perfilPasswordError').style.display = 'none';
+  document.getElementById('perfilPasswordExito').style.display = 'none';
+}
+
+// Guarda nombre/apellido/correo (POST /auth/perfil). El backend devuelve un
+// token nuevo porque esos datos van adentro del token — hay que guardarlo ya
+// mismo (guardarSesion) y refrescar la "pastilla" de cuenta, si no el resto
+// del taller se queda mostrando los datos viejos hasta cerrar sesión.
+async function guardarPerfil(){
+  const nombre = document.getElementById('perfilNombre').value.trim();
+  const apellido = document.getElementById('perfilApellido').value.trim();
+  const email = document.getElementById('perfilEmail').value.trim();
+  const err = document.getElementById('perfilError');
+  const exito = document.getElementById('perfilExito');
+  err.style.display = 'none';
+  exito.style.display = 'none';
+  if(!email){
+    err.textContent = 'El correo no puede quedar vacío.';
+    err.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('perfilGuardarBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/auth/perfil', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, apellido, email }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudo guardar el perfil.');
+    }
+    guardarSesion(data.token, data.email);
+    actualizarUserChip(data);
+    exito.textContent = 'Listo — tus datos se actualizaron.';
+    exito.style.display = 'block';
+  }catch(e){
+    err.textContent = e?.message || 'No se pudo guardar el perfil.';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+// Cambia la contraseña de la propia cuenta (POST /auth/cambiar-password),
+// pidiendo la actual como confirmación — a diferencia del panel de
+// administración, donde un administrador la cambia sin saber la vieja.
+async function cambiarPasswordPropia(){
+  const actual = document.getElementById('perfilPasswordActual').value;
+  const nueva = document.getElementById('perfilPasswordNueva').value;
+  const confirmar = document.getElementById('perfilPasswordConfirmar').value;
+  const err = document.getElementById('perfilPasswordError');
+  const exito = document.getElementById('perfilPasswordExito');
+  err.style.display = 'none';
+  exito.style.display = 'none';
+  if(!actual){
+    err.textContent = 'Ingresá tu contraseña actual.';
+    err.style.display = 'block';
+    return;
+  }
+  if(!nueva || nueva.length < 8){
+    err.textContent = 'La contraseña nueva debe tener al menos 8 caracteres.';
+    err.style.display = 'block';
+    return;
+  }
+  if(nueva !== confirmar){
+    err.textContent = 'Las contraseñas nuevas no coinciden.';
+    err.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('perfilCambiarPasswordBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/auth/cambiar-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passwordActual: actual, passwordNueva: nueva }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudo cambiar la contraseña.');
+    }
+    document.getElementById('perfilPasswordActual').value = '';
+    document.getElementById('perfilPasswordNueva').value = '';
+    document.getElementById('perfilPasswordConfirmar').value = '';
+    exito.textContent = 'Listo — tu contraseña se actualizó.';
+    exito.style.display = 'block';
+  }catch(e){
+    err.textContent = e?.message || 'No se pudo cambiar la contraseña.';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+document.getElementById('perfilGuardarBtn').onclick = guardarPerfil;
+document.getElementById('perfilCambiarPasswordBtn').onclick = cambiarPasswordPropia;
+document.getElementById('perfilEmail').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') guardarPerfil(); });
+document.getElementById('perfilPasswordConfirmar').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') cambiarPasswordPropia(); });
+// Ojitos de mostrar/ocultar contraseña — mismo patrón que en la pantalla de
+// entrada (ver authEyeBtn más arriba).
+[['perfilEyeActual','perfilPasswordActual'], ['perfilEyeNueva','perfilPasswordNueva'], ['perfilEyeConfirmar','perfilPasswordConfirmar']].forEach(([btnId, inputId])=>{
+  document.getElementById(btnId).addEventListener('click', ()=>{
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    const mostrar = input.type === 'password';
+    input.type = mostrar ? 'text' : 'password';
+    btn.textContent = mostrar ? '🙈' : '👁';
+  });
+});
 
 // ---------------- TABS ----------------
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -3792,6 +3998,11 @@ let authModoRegistro = false;
 // admin.controller.ts. Controla si se muestra el botón "Panel de
 // administración" en el menú de cuenta.
 let usuarioActualEsAdmin = false;
+// El objeto completo (id/email/nombre/apellido/esAdmin) de quien está
+// conectado — lo guarda actualizarUserChip() cada vez que cambia, y lo usa
+// "Mi Perfil" (ver cargarPerfil()) para saber qué mostrar en los campos sin
+// tener que volver a pedírselo al backend.
+let usuarioActual = null;
 
 function obtenerTokenGuardado(){
   try{ return localStorage.getItem(AUTH_TOKEN_KEY); }catch{ return null; }
@@ -3938,9 +4149,10 @@ function actualizarUserChip(usuario){
   set('userDropdownMail', email);
 
   // Guardado global para poder consultarlo en cualquier lado (ver
-  // goToView/cargarUsuariosAdmin) — y el botón de "Panel de administración"
-  // en el menú de cuenta solo aparece si el backend marcó esta cuenta como
-  // administradora (ver ADMIN_EMAILS en auth.service.ts).
+  // goToView/cargarUsuariosAdmin/cargarPerfil) — y el botón de "Panel de
+  // administración" en el menú de cuenta solo aparece si el backend marcó
+  // esta cuenta como administradora (ver ADMIN_EMAILS en auth.service.ts).
+  usuarioActual = usuario || null;
   usuarioActualEsAdmin = !!usuario?.esAdmin;
   const adminBtn = document.getElementById('userDropdownAdminBtn');
   if(adminBtn) adminBtn.style.display = usuarioActualEsAdmin ? 'flex' : 'none';
@@ -4081,6 +4293,11 @@ document.getElementById('userDropdownAdminBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
   userDropdownEl.style.display = 'none';
   goToView('admin');
+});
+document.getElementById('userDropdownPerfilBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  userDropdownEl.style.display = 'none';
+  goToView('perfil');
 });
 document.addEventListener('click', ()=>{ userDropdownEl.style.display = 'none'; });
 
@@ -5354,6 +5571,7 @@ function renderAll(){
   if(currentView === 'home'){ renderHome(); return; }
   if(currentView === 'mislandings'){ renderMisLandings(); return; }
   if(currentView === 'admin'){ cargarUsuariosAdmin(); return; }
+  if(currentView === 'perfil'){ cargarPerfil(); return; }
   // workspace
   document.getElementById('productTitle').textContent = currentProduct;
   if(currentProduct !== lastRenderedProduct){
