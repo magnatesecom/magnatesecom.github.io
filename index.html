@@ -1070,6 +1070,7 @@
             <div class="user-dropdown-mail" id="userDropdownMail"></div>
           </div>
           <button type="button" class="user-dropdown-admin" id="userDropdownPerfilBtn"><span>👤</span> Mi Perfil</button>
+          <button type="button" class="user-dropdown-admin" id="userDropdownIntegracionesBtn"><span>🔗</span> Integraciones</button>
           <button type="button" class="user-dropdown-admin" id="userDropdownAdminBtn" style="display:none;"><span>🛡</span> Panel de administración</button>
           <button type="button" class="user-dropdown-logout" id="userDropdownLogoutBtn"><span>⏻</span> Cerrar sesión</button>
         </div>
@@ -1189,6 +1190,84 @@
           </div>
         </div>
         <button type="button" class="btn btn-coral" id="perfilCambiarPasswordBtn" style="margin-top:20px;">Cambiar Contraseña</button>
+      </div>
+    </div>
+
+    <!-- VIEW: INTEGRACIONES — cada usuario conecta ACÁ su propia tienda de
+         Shopify (para que "Enviar a Shopify" publique en SU tienda) y su
+         propia clave de fal.ai (una sola clave, sirve tanto para las
+         imágenes como para el texto con IA — ver integraciones.service.ts
+         en el backend). -->
+    <div class="content" id="view-integraciones" style="display:none;">
+      <div class="home-header-row">
+        <div>
+          <h2 class="home-title">Integraciones</h2>
+          <p class="home-sub">Conectá tu propia tienda de Shopify y tu propia clave de fal.ai — cada estudiante usa las suyas.</p>
+        </div>
+      </div>
+
+      <!-- Shopify -->
+      <div class="intro-card" style="max-width:640px;">
+        <div class="intro-head">
+          <div class="intro-icon">🛍</div>
+          <div>
+            <h3>Shopify</h3>
+            <p>Conectá tu tienda para que "Enviar a Shopify" publique ahí.</p>
+          </div>
+        </div>
+
+        <div id="integShopifyConectado" style="display:none;">
+          <div style="width:100%; background:rgba(75,143,99,0.14); border:1px solid rgba(75,143,99,0.4); color:#8fd6a7; border-radius:8px; padding:12px 14px; font-size:12.5px; line-height:1.5; margin-bottom:16px; box-sizing:border-box;">
+            ✓ Conectado a <b id="integShopifyDominioTexto"></b><br>Token guardado: <span id="integShopifyTokenTexto" style="font-family:'IBM Plex Mono', monospace;"></span>
+          </div>
+          <button type="button" class="btn btn-ghost" id="integShopifyDesconectarBtn">Desconectar</button>
+        </div>
+
+        <div id="integShopifyFormWrap">
+          <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 16px 0;">
+            Pasos en tu tienda: <b>Configuración → Apps y canales de venta → Desarrollar apps → Crear una app</b>. Dale un nombre, entrá a <b>Configuración → Alcances de API de administración</b> y activá <code>read_products</code>, <code>write_products</code>, <code>read_themes</code>, <code>write_themes</code> y <code>write_publications</code>. Guardá, instalá la app en tu tienda y copiá el <b>Token de acceso de API Admin</b> (empieza con <code>shpat_</code>) — pegalo abajo.
+          </p>
+          <div id="integShopifyError" class="auth-error" style="display:none;"></div>
+          <label class="auth-label">Dominio de tu tienda</label>
+          <input type="text" class="auth-input" id="integShopifyDominio" placeholder="mitienda.myshopify.com" autocomplete="off" style="padding-left:14px; margin-bottom:16px;">
+          <label class="auth-label">Token de acceso de API Admin</label>
+          <div style="position:relative; width:100%; margin-bottom:20px;">
+            <input type="password" class="auth-input" id="integShopifyToken" placeholder="shpat_..." autocomplete="off" style="padding-left:14px; padding-right:38px;">
+            <button type="button" class="auth-eye-btn" id="integShopifyEye" title="Mostrar/ocultar">👁</button>
+          </div>
+          <button type="button" class="btn btn-coral" id="integShopifyConectarBtn">Conectar tienda</button>
+        </div>
+      </div>
+
+      <!-- fal.ai -->
+      <div class="intro-card" style="max-width:640px;">
+        <div class="intro-head">
+          <div class="intro-icon">✨</div>
+          <div>
+            <h3>fal.ai (Imágenes y Texto)</h3>
+            <p>Una sola clave: genera tanto las imágenes como el texto con IA.</p>
+          </div>
+        </div>
+
+        <div id="integFalConectado" style="display:none;">
+          <div style="width:100%; background:rgba(75,143,99,0.14); border:1px solid rgba(75,143,99,0.4); color:#8fd6a7; border-radius:8px; padding:12px 14px; font-size:12.5px; line-height:1.5; margin-bottom:16px; box-sizing:border-box;">
+            ✓ Clave conectada: <span id="integFalKeyTexto" style="font-family:'IBM Plex Mono', monospace;"></span>
+          </div>
+          <button type="button" class="btn btn-ghost" id="integFalDesconectarBtn">Desconectar</button>
+        </div>
+
+        <div id="integFalFormWrap">
+          <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 16px 0;">
+            Creá tu cuenta en <b>fal.ai</b>, cargá créditos, y copiá tu clave desde <b>fal.ai/dashboard/keys</b> — pegala abajo. Esa misma clave se usa para generar las imágenes y también el texto de la ficha técnica, no hace falta ninguna otra.
+          </p>
+          <div id="integFalError" class="auth-error" style="display:none;"></div>
+          <label class="auth-label">Clave de fal.ai</label>
+          <div style="position:relative; width:100%; margin-bottom:20px;">
+            <input type="password" class="auth-input" id="integFalKey" placeholder="Pegá tu clave de fal.ai" autocomplete="off" style="padding-left:14px; padding-right:38px;">
+            <button type="button" class="auth-eye-btn" id="integFalEye" title="Mostrar/ocultar">👁</button>
+          </div>
+          <button type="button" class="btn btn-coral" id="integFalConectarBtn">Conectar clave</button>
+        </div>
       </div>
     </div>
 
@@ -2131,6 +2210,7 @@ function goToView(view){
   document.getElementById('view-mislandings').style.display = view==='mislandings' ? 'block' : 'none';
   document.getElementById('view-admin').style.display = view==='admin' ? 'block' : 'none';
   document.getElementById('view-perfil').style.display = view==='perfil' ? 'block' : 'none';
+  document.getElementById('view-integraciones').style.display = view==='integraciones' ? 'block' : 'none';
   document.getElementById('view-workspace').style.display = view==='workspace' ? 'block' : 'none';
   document.getElementById('navLanding').classList.toggle('active', view==='home' || view==='workspace');
   document.getElementById('navMisLandings').classList.toggle('active', view==='mislandings');
@@ -2661,6 +2741,173 @@ document.getElementById('perfilPasswordConfirmar').addEventListener('keydown', (
 // Ojitos de mostrar/ocultar contraseña — mismo patrón que en la pantalla de
 // entrada (ver authEyeBtn más arriba).
 [['perfilEyeActual','perfilPasswordActual'], ['perfilEyeNueva','perfilPasswordNueva'], ['perfilEyeConfirmar','perfilPasswordConfirmar']].forEach(([btnId, inputId])=>{
+  document.getElementById(btnId).addEventListener('click', ()=>{
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    const mostrar = input.type === 'password';
+    input.type = mostrar ? 'text' : 'password';
+    btn.textContent = mostrar ? '🙈' : '👁';
+  });
+});
+
+// ---------------- INTEGRACIONES ----------------
+// Cada usuario conecta acá su propia tienda de Shopify y su propia clave de
+// fal.ai (ver integraciones.controller.ts en el backend) — nada de esto se
+// comparte entre cuentas. Se llama cada vez que se entra a esta vista (ver
+// renderAll) para traer el estado real guardado (conectado/no conectado +
+// una vista previa enmascarada, nunca el valor completo — ver
+// integraciones.service.ts, obtener()).
+async function cargarIntegraciones(){
+  document.getElementById('integShopifyError').style.display = 'none';
+  document.getElementById('integFalError').style.display = 'none';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/integraciones', { method: 'GET' });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok) throw new Error(data?.message || 'No se pudo cargar el estado de las integraciones.');
+    renderEstadoShopify(data);
+    renderEstadoFal(data);
+  }catch(e){
+    console.warn('No se pudo cargar Integraciones', e);
+    renderEstadoShopify({ shopifyConectado: false });
+    renderEstadoFal({ falConectado: false });
+  }
+}
+
+function renderEstadoShopify(data){
+  const conectado = !!data.shopifyConectado;
+  document.getElementById('integShopifyConectado').style.display = conectado ? 'block' : 'none';
+  document.getElementById('integShopifyFormWrap').style.display = conectado ? 'none' : 'block';
+  if(conectado){
+    document.getElementById('integShopifyDominioTexto').textContent = data.shopifyStoreDomain || '';
+    document.getElementById('integShopifyTokenTexto').textContent = data.shopifyTokenParcial || '';
+  } else {
+    document.getElementById('integShopifyDominio').value = '';
+    document.getElementById('integShopifyToken').value = '';
+  }
+}
+
+function renderEstadoFal(data){
+  const conectado = !!data.falConectado;
+  document.getElementById('integFalConectado').style.display = conectado ? 'block' : 'none';
+  document.getElementById('integFalFormWrap').style.display = conectado ? 'none' : 'block';
+  if(conectado){
+    document.getElementById('integFalKeyTexto').textContent = data.falKeyParcial || '';
+  } else {
+    document.getElementById('integFalKey').value = '';
+  }
+}
+
+async function conectarShopify(){
+  const storeDomain = document.getElementById('integShopifyDominio').value.trim();
+  const accessToken = document.getElementById('integShopifyToken').value.trim();
+  const err = document.getElementById('integShopifyError');
+  err.style.display = 'none';
+  if(!storeDomain || !accessToken){
+    err.textContent = 'Completá el dominio de la tienda y el token de acceso.';
+    err.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('integShopifyConectarBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Conectando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/integraciones/shopify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeDomain, accessToken }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudo conectar la tienda.');
+    }
+    renderEstadoShopify(data);
+  }catch(e){
+    err.textContent = e?.message || 'No se pudo conectar la tienda.';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function desconectarShopify(){
+  if(!confirm('¿Desconectar tu tienda de Shopify? "Enviar a Shopify" va a dejar de funcionar hasta que la vuelvas a conectar.')) return;
+  const btn = document.getElementById('integShopifyDesconectarBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Desconectando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/integraciones/shopify', { method: 'DELETE' });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok) throw new Error(data?.message || 'No se pudo desconectar la tienda.');
+    renderEstadoShopify(data);
+  }catch(e){
+    alert(e?.message || 'No se pudo desconectar la tienda.');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function conectarFal(){
+  const apiKey = document.getElementById('integFalKey').value.trim();
+  const err = document.getElementById('integFalError');
+  err.style.display = 'none';
+  if(!apiKey){
+    err.textContent = 'Pegá tu clave de fal.ai.';
+    err.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('integFalConectarBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Conectando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/integraciones/fal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudo conectar la clave.');
+    }
+    renderEstadoFal(data);
+  }catch(e){
+    err.textContent = e?.message || 'No se pudo conectar la clave.';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function desconectarFal(){
+  if(!confirm('¿Desconectar tu clave de fal.ai? Generar imágenes y completar campos con IA van a dejar de funcionar hasta que la vuelvas a conectar.')) return;
+  const btn = document.getElementById('integFalDesconectarBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Desconectando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/integraciones/fal', { method: 'DELETE' });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok) throw new Error(data?.message || 'No se pudo desconectar la clave.');
+    renderEstadoFal(data);
+  }catch(e){
+    alert(e?.message || 'No se pudo desconectar la clave.');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+document.getElementById('integShopifyConectarBtn').onclick = conectarShopify;
+document.getElementById('integShopifyDesconectarBtn').onclick = desconectarShopify;
+document.getElementById('integFalConectarBtn').onclick = conectarFal;
+document.getElementById('integFalDesconectarBtn').onclick = desconectarFal;
+// Ojitos de mostrar/ocultar — mismo patrón que en Mi Perfil / la pantalla de entrada.
+[['integShopifyEye','integShopifyToken'], ['integFalEye','integFalKey']].forEach(([btnId, inputId])=>{
   document.getElementById(btnId).addEventListener('click', ()=>{
     const input = document.getElementById(inputId);
     const btn = document.getElementById(btnId);
@@ -4299,6 +4546,11 @@ document.getElementById('userDropdownPerfilBtn').addEventListener('click', (e)=>
   userDropdownEl.style.display = 'none';
   goToView('perfil');
 });
+document.getElementById('userDropdownIntegracionesBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  userDropdownEl.style.display = 'none';
+  goToView('integraciones');
+});
 document.addEventListener('click', ()=>{ userDropdownEl.style.display = 'none'; });
 
 function realFicha(){
@@ -5338,7 +5590,7 @@ async function enviarLandingAShopify(landing, btnEl){
     setTimeout(()=>{ btnEl.textContent = landing.shopifyUrl ? '🔄 Volver a publicar' : original; btnEl.disabled = false; }, 2500);
   }catch(err){
     console.warn('No se pudo publicar en Shopify', err);
-    alert('No se pudo enviar la landing a Shopify: ' + (err?.message || 'error desconocido') + '\n\nRevisa que el backend tenga configuradas las variables SHOPIFY_STORE_DOMAIN, SHOPIFY_CLIENT_ID y SHOPIFY_CLIENT_SECRET en Railway, y que la app esté instalada en la tienda.');
+    alert('No se pudo enviar la landing a Shopify: ' + (err?.message || 'error desconocido') + '\n\nRevisá tu conexión en el menú de cuenta → Integraciones (dominio de la tienda y token de acceso).');
     btnEl.textContent = original;
     btnEl.disabled = false;
   }
@@ -5572,6 +5824,7 @@ function renderAll(){
   if(currentView === 'mislandings'){ renderMisLandings(); return; }
   if(currentView === 'admin'){ cargarUsuariosAdmin(); return; }
   if(currentView === 'perfil'){ cargarPerfil(); return; }
+  if(currentView === 'integraciones'){ cargarIntegraciones(); return; }
   // workspace
   document.getElementById('productTitle').textContent = currentProduct;
   if(currentProduct !== lastRenderedProduct){
