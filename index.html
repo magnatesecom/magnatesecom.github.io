@@ -1053,15 +1053,14 @@
     <ul class="nav-list">
       <li class="nav-item" id="navLanding"><span class="ico">🗂</span> Generador de Landing <span class="arrow">▸</span></li>
       <li class="nav-item" id="navMisLandings"><span class="ico">📱</span> Mis Landings</li>
+      <li class="nav-item" id="navIntegraciones"><span class="ico">🔗</span> Integraciones</li>
     </ul>
 
     <div class="credits-box">
       <div class="credits-row">
-        <span class="credits-label">Créditos de Prueba</span>
-        <span class="credits-num"><span id="creditsUsed">0</span>/5</span>
+        <span class="credits-label">✨ Piezas generadas</span>
+        <span class="credits-num" id="creditsUsed">0</span>
       </div>
-      <div class="credits-bartrack"><div class="credits-barfill" id="creditsBarFill" style="width:0%"></div></div>
-      <div class="credits-note">Ver estado de cuenta</div>
     </div>
   </div>
 
@@ -1071,7 +1070,6 @@
     <!-- GLOBAL TOPBAR -->
     <div class="global-topbar">
       <button class="sidebar-toggle" id="sidebarToggle">☰</button>
-      <span class="credits-pill">✨ <b id="pillCredits">0</b> piezas generadas en Ecom Magnates</span>
       <div class="global-topbar-spacer"></div>
       <div class="user-chip-wrap">
         <div class="user-chip" id="userChip" title="Cuenta">
@@ -1085,7 +1083,6 @@
             <div class="user-dropdown-mail" id="userDropdownMail"></div>
           </div>
           <button type="button" class="user-dropdown-admin" id="userDropdownPerfilBtn"><span>👤</span> Mi Perfil</button>
-          <button type="button" class="user-dropdown-admin" id="userDropdownIntegracionesBtn"><span>🔗</span> Integraciones</button>
           <button type="button" class="user-dropdown-admin" id="userDropdownAdminBtn" style="display:none;"><span>🛡</span> Panel de administración</button>
           <button type="button" class="user-dropdown-logout" id="userDropdownLogoutBtn"><span>⏻</span> Cerrar sesión</button>
         </div>
@@ -1233,21 +1230,23 @@
 
         <div id="integShopifyConectado" style="display:none;">
           <div style="width:100%; background:rgba(75,143,99,0.14); border:1px solid rgba(75,143,99,0.4); color:#8fd6a7; border-radius:8px; padding:12px 14px; font-size:12.5px; line-height:1.5; margin-bottom:16px; box-sizing:border-box;">
-            ✓ Conectado a <b id="integShopifyDominioTexto"></b><br>Token guardado: <span id="integShopifyTokenTexto" style="font-family:'IBM Plex Mono', monospace;"></span>
+            ✓ Conectado a <b id="integShopifyDominioTexto"></b><br>ID de Cliente: <span id="integShopifyClientIdTexto" style="font-family:'IBM Plex Mono', monospace;"></span><br>Secreto guardado: <span id="integShopifyTokenTexto" style="font-family:'IBM Plex Mono', monospace;"></span>
           </div>
           <button type="button" class="btn btn-ghost" id="integShopifyDesconectarBtn">Desconectar</button>
         </div>
 
         <div id="integShopifyFormWrap">
           <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 16px 0;">
-            Pasos en tu tienda: <b>Configuración → Apps y canales de venta → Desarrollar apps → Crear una app</b>. Dale un nombre, entrá a <b>Configuración → Alcances de API de administración</b> y activá <code>read_products</code>, <code>write_products</code>, <code>read_themes</code>, <code>write_themes</code> y <code>write_publications</code>. Guardá, instalá la app en tu tienda y copiá el <b>Token de acceso de API Admin</b> (empieza con <code>shpat_</code>) — pegalo abajo.
+            Pasos: entrá a <b>dev.shopify.com/dashboard</b>, creá una app nueva para tu tienda. En <b>Configuración de la app → Versiones → Crear versión</b>, activá los alcances (permisos) <code>read_products</code>, <code>write_products</code>, <code>read_themes</code>, <code>write_themes</code> y <code>write_publications</code>, y lanzá la versión. Instalá la app en tu tienda (o reinstalala si agregaste permisos nuevos). Volvé a <b>Configuración de la app → Credenciales</b> y copiá el <b>ID de Cliente</b> y el <b>Secreto</b> — pegalos abajo.
           </p>
           <div id="integShopifyError" class="auth-error" style="display:none;"></div>
-          <label class="auth-label">Dominio de tu tienda</label>
-          <input type="text" class="auth-input" id="integShopifyDominio" placeholder="mitienda.myshopify.com" autocomplete="off" style="padding-left:14px; margin-bottom:16px;">
-          <label class="auth-label">Token de acceso de API Admin</label>
+          <label class="auth-label">Dominio de la tienda</label>
+          <input type="text" class="auth-input" id="integShopifyDominio" placeholder="mi-tienda.myshopify.com" autocomplete="off" style="padding-left:14px; margin-bottom:16px;">
+          <label class="auth-label">Client ID</label>
+          <input type="text" class="auth-input" id="integShopifyClientId" placeholder="ID de Cliente de tu app" autocomplete="off" style="padding-left:14px; margin-bottom:16px;">
+          <label class="auth-label">Client Secret</label>
           <div style="position:relative; width:100%; margin-bottom:20px;">
-            <input type="password" class="auth-input" id="integShopifyToken" placeholder="shpat_..." autocomplete="off" style="padding-left:14px; padding-right:38px;">
+            <input type="password" class="auth-input" id="integShopifyToken" placeholder="Tu Client Secret" autocomplete="off" style="padding-left:14px; padding-right:38px;">
             <button type="button" class="auth-eye-btn" id="integShopifyEye" title="Mostrar/ocultar">👁</button>
           </div>
           <button type="button" class="btn btn-coral" id="integShopifyConectarBtn">Conectar tienda</button>
@@ -2260,11 +2259,13 @@ function goToView(view){
   document.getElementById('view-workspace').style.display = view==='workspace' ? 'block' : 'none';
   document.getElementById('navLanding').classList.toggle('active', view==='home' || view==='workspace');
   document.getElementById('navMisLandings').classList.toggle('active', view==='mislandings');
+  document.getElementById('navIntegraciones').classList.toggle('active', view==='integraciones');
   renderAll();
 }
 
 document.getElementById('navLanding').onclick = ()=> goToView('home');
 document.getElementById('navMisLandings').onclick = ()=> goToView('mislandings');
+document.getElementById('navIntegraciones').onclick = ()=> goToView('integraciones');
 document.getElementById('backToHome').onclick = ()=> goToView('home');
 document.getElementById('sidebarToggle').onclick = ()=>{
   document.getElementById('sidebar').style.display =
@@ -2871,9 +2872,11 @@ function renderEstadoShopify(data){
   document.getElementById('integShopifyFormWrap').style.display = conectado ? 'none' : 'block';
   if(conectado){
     document.getElementById('integShopifyDominioTexto').textContent = data.shopifyStoreDomain || '';
-    document.getElementById('integShopifyTokenTexto').textContent = data.shopifyTokenParcial || '';
+    document.getElementById('integShopifyClientIdTexto').textContent = data.shopifyClientId || '';
+    document.getElementById('integShopifyTokenTexto').textContent = data.shopifyClientSecretParcial || '';
   } else {
     document.getElementById('integShopifyDominio').value = '';
+    document.getElementById('integShopifyClientId').value = '';
     document.getElementById('integShopifyToken').value = '';
   }
 }
@@ -2891,11 +2894,12 @@ function renderEstadoFal(data){
 
 async function conectarShopify(){
   const storeDomain = document.getElementById('integShopifyDominio').value.trim();
-  const accessToken = document.getElementById('integShopifyToken').value.trim();
+  const clientId = document.getElementById('integShopifyClientId').value.trim();
+  const clientSecret = document.getElementById('integShopifyToken').value.trim();
   const err = document.getElementById('integShopifyError');
   err.style.display = 'none';
-  if(!storeDomain || !accessToken){
-    err.textContent = 'Completá el dominio de la tienda y el token de acceso.';
+  if(!storeDomain || !clientId || !clientSecret){
+    err.textContent = 'Completá el dominio de la tienda, el Client ID y el Client Secret.';
     err.style.display = 'block';
     return;
   }
@@ -2907,7 +2911,7 @@ async function conectarShopify(){
     const resp = await apiFetch(BACKEND_URL + '/integraciones/shopify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storeDomain, accessToken }),
+      body: JSON.stringify({ storeDomain, clientId, clientSecret }),
     });
     const data = await resp.json().catch(()=> ({}));
     if(!resp.ok){
@@ -4760,11 +4764,6 @@ document.getElementById('userDropdownPerfilBtn').addEventListener('click', (e)=>
   userDropdownEl.style.display = 'none';
   goToView('perfil');
 });
-document.getElementById('userDropdownIntegracionesBtn').addEventListener('click', (e)=>{
-  e.stopPropagation();
-  userDropdownEl.style.display = 'none';
-  goToView('integraciones');
-});
 document.addEventListener('click', ()=>{ userDropdownEl.style.display = 'none'; });
 
 function realFicha(){
@@ -5915,12 +5914,13 @@ document.getElementById('assembleBtn').onclick = ()=>{
 };
 
 // ---------------- CREDITS ----------------
+// No hay ningún tope real de generación (se sacó a pedido del usuario) — acá
+// solo se muestra, a modo informativo, el total de piezas que generó la
+// cuenta en total, sin "restantes" ni barra de progreso (no tendría sentido
+// sin un límite real detrás).
 function renderCredits(){
-  const st = currentProduct ? getState(currentProduct) : {creditsUsed:0};
   const total = totalCreditsAll();
   document.getElementById('creditsUsed').textContent = total;
-  document.getElementById('pillCredits').textContent = total;
-  document.getElementById('creditsBarFill').style.width = Math.min(100, (total/5)*100) + '%';
 }
 
 // ---------------- RENDER ALL ----------------
