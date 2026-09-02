@@ -613,6 +613,60 @@
   .intro-head h3{ font-size:15.5px; font-weight:700; margin:0 0 3px 0; }
   .intro-head p{ font-size:12.5px; color:var(--text-dim); margin:0; }
 
+  /* ---------- Panel desplegable "¿Cómo obtener las credenciales...?" (Integraciones) ---------- */
+  .help-toggle{
+    display:flex; align-items:center; gap:9px; width:100%; background:rgba(212,169,53,0.08);
+    border:1px solid var(--line-strong); border-radius:8px; padding:11px 14px; margin-bottom:14px;
+    cursor:pointer; color:var(--paper); font-size:12.5px; font-weight:700; font-family:'IBM Plex Sans';
+  }
+  .help-toggle:hover{ background:rgba(212,169,53,0.14); }
+  .help-toggle .help-toggle-icon{ color:var(--coral); font-size:15px; flex-shrink:0; }
+  .help-toggle .help-toggle-arrow{ margin-left:auto; color:var(--text-dim); font-size:11px; transition:transform .15s; flex-shrink:0; }
+  .help-toggle.open .help-toggle-arrow{ transform:rotate(180deg); }
+  .help-panel{
+    display:none; background:rgba(0,0,0,0.16); border:1px solid var(--line); border-radius:8px;
+    padding:16px 16px 4px 16px; margin:-6px 0 14px 0;
+  }
+  .help-panel.open{ display:block; }
+  .help-panel-intro{ font-size:12px; color:var(--text-dim); line-height:1.5; margin:0 0 14px 0; }
+  .help-step{ display:flex; gap:12px; margin-bottom:14px; }
+  .help-step-num{
+    width:22px; height:22px; border-radius:50%; background:var(--coral-dim); color:var(--coral);
+    font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .help-step-body b{ display:block; font-size:12.5px; font-weight:700; color:var(--paper); margin-bottom:2px; }
+  .help-step-body p{ font-size:12px; color:var(--text-dim); line-height:1.55; margin:0; }
+  .help-step-body code{ background:rgba(212,169,53,0.14); color:var(--coral); border-radius:4px; padding:1px 5px; font-size:11.5px; }
+  .help-step-body a{ color:var(--coral); }
+
+  /* ---------- Tarjeta "tienda conectada" (Integraciones → Shopify) ---------- */
+  .integ-badge-tienda{
+    display:inline-flex; align-items:center; gap:5px; background:rgba(75,143,99,0.16); border:1px solid rgba(75,143,99,0.4);
+    color:#8fd6a7; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px; flex-shrink:0;
+  }
+  .shopify-store-card{
+    display:flex; align-items:center; gap:14px; width:100%; background:rgba(0,0,0,0.16); border:1px solid var(--line);
+    border-radius:10px; padding:14px; margin-bottom:12px; box-sizing:border-box;
+  }
+  .shopify-store-thumb{
+    width:52px; height:52px; border-radius:8px; background:var(--coral-dim); color:var(--coral); font-size:22px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden;
+  }
+  .shopify-store-info{ flex:1; min-width:0; }
+  .shopify-store-name{ font-size:14px; font-weight:700; color:var(--paper); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shopify-store-domain-row{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shopify-store-dot{ width:8px; height:8px; border-radius:50%; background:#4bd18f; flex-shrink:0; box-shadow:0 0 0 3px rgba(75,209,143,0.18); }
+  .shopify-datos-btn{ flex-shrink:0; white-space:nowrap; }
+  .shopify-datos-panel{
+    display:none; width:100%; background:rgba(0,0,0,0.16); border:1px solid var(--line); border-radius:10px;
+    padding:4px 16px; margin-bottom:16px; box-sizing:border-box;
+  }
+  .shopify-datos-panel.open{ display:block; padding:10px 16px; }
+  .shopify-datos-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:12.5px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .shopify-datos-row:last-child{ border-bottom:none; }
+  .shopify-datos-row span{ color:var(--text-dim); }
+  .shopify-datos-row b{ color:var(--paper); font-family:'IBM Plex Mono', monospace; font-weight:600; text-align:right; }
+
   .plantilla-row-h{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .field-label-sm{ font-size:12px; font-weight:700; }
   .btn-upload-pc{
@@ -1220,25 +1274,78 @@
 
       <!-- Shopify -->
       <div class="intro-card" style="max-width:640px;">
-        <div class="intro-head">
+        <div class="intro-head" style="align-items:center;">
           <div class="intro-icon">🛍</div>
-          <div>
+          <div style="flex:1; min-width:0;">
             <h3>Shopify</h3>
             <p>Conectá tu tienda para que "Enviar a Shopify" publique ahí.</p>
           </div>
+          <span class="integ-badge-tienda" id="integShopifyBadgeTienda" style="display:none;">🟢 <span id="integShopifyBadgeTiendaTexto">1 tienda</span></span>
         </div>
 
         <div id="integShopifyConectado" style="display:none;">
-          <div style="width:100%; background:rgba(75,143,99,0.14); border:1px solid rgba(75,143,99,0.4); color:#8fd6a7; border-radius:8px; padding:12px 14px; font-size:12.5px; line-height:1.5; margin-bottom:16px; box-sizing:border-box;">
-            ✓ Conectado a <b id="integShopifyDominioTexto"></b><br>ID de Cliente: <span id="integShopifyClientIdTexto" style="font-family:'IBM Plex Mono', monospace;"></span><br>Secreto guardado: <span id="integShopifyTokenTexto" style="font-family:'IBM Plex Mono', monospace;"></span>
+          <div class="shopify-store-card">
+            <div class="shopify-store-thumb">🛍</div>
+            <div class="shopify-store-info">
+              <div class="shopify-store-name" id="integShopifyNombreTienda"></div>
+              <div class="shopify-store-domain-row">
+                <span class="shopify-store-dot"></span>
+                <span id="integShopifyDominioTexto"></span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost shopify-datos-btn" id="integShopifyDatosBtn">📄 Datos de la tienda</button>
+          </div>
+          <div class="shopify-datos-panel" id="integShopifyDatosPanel">
+            <div class="shopify-datos-row"><span>ID de Cliente</span><b id="integShopifyClientIdTexto"></b></div>
+            <div class="shopify-datos-row"><span>Secreto guardado</span><b id="integShopifyTokenTexto"></b></div>
           </div>
           <button type="button" class="btn btn-ghost" id="integShopifyDesconectarBtn">Desconectar</button>
         </div>
 
         <div id="integShopifyFormWrap">
-          <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 16px 0;">
-            Pasos: entrá a <b>dev.shopify.com/dashboard</b>, creá una app nueva para tu tienda. En <b>Configuración de la app → Versiones → Crear versión</b>, activá los alcances (permisos) <code>read_products</code>, <code>write_products</code>, <code>read_themes</code>, <code>write_themes</code> y <code>write_publications</code>, y lanzá la versión. Instalá la app en tu tienda (o reinstalala si agregaste permisos nuevos). Volvé a <b>Configuración de la app → Credenciales</b> y copiá el <b>ID de Cliente</b> y el <b>Secreto</b> — pegalos abajo.
-          </p>
+          <button type="button" class="help-toggle" id="shopifyHelpToggle">
+            <span class="help-toggle-icon">ⓘ</span>
+            <span>¿Cómo obtener las credenciales de Shopify?</span>
+            <span class="help-toggle-arrow">▾</span>
+          </button>
+          <div class="help-panel" id="shopifyHelpPanel">
+            <p class="help-panel-intro">Necesitás crear una app personalizada en el Dev Dashboard de Shopify, para tu propia tienda. Seguí estos pasos en orden:</p>
+            <div class="help-step">
+              <div class="help-step-num">1</div>
+              <div class="help-step-body">
+                <b>Entrá al Dev Dashboard de Shopify</b>
+                <p>Abrí <a href="https://dev.shopify.com/dashboard" target="_blank" rel="noopener">dev.shopify.com/dashboard</a> y entrá con la MISMA cuenta con la que administrás tu tienda.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">2</div>
+              <div class="help-step-body">
+                <b>Creá una app nueva</b>
+                <p>Hacé clic en el botón para crear una app y ponele el nombre que quieras (ej. "Integración Taller").</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">3</div>
+              <div class="help-step-body">
+                <b>Activá los permisos (Access scopes)</b>
+                <p>Dentro de la app, andá a <b>Configuración de la app → Versiones → Crear versión</b> y activá estos 5 permisos, ni uno más: <code>read_products</code>, <code>write_products</code>, <code>read_themes</code>, <code>write_themes</code>, <code>write_publications</code>. Después hacé clic en "Lanzar".</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">4</div>
+              <div class="help-step-body">
+                <b>Instalá la app en tu tienda</b>
+                <p>Volvé a "Configuración de la app" y hacé clic en "Instalar app". Si la app ya estaba instalada de antes y le acabás de agregar permisos nuevos, tenés que reinstalarla para que los tome.</p>
+              </div>
+            </div>
+            <div class="help-step">
+              <div class="help-step-num">5</div>
+              <div class="help-step-body">
+                <b>Copiá las credenciales</b>
+                <p>En "Configuración de la app → Credenciales" vas a ver el <b>ID de Cliente</b> y el <b>Secreto</b> — copiá los dos y pegalos abajo, junto con el dominio de tu tienda (terminado en <code>.myshopify.com</code>).</p>
+              </div>
+            </div>
+          </div>
           <div id="integShopifyError" class="auth-error" style="display:none;"></div>
           <label class="auth-label">Dominio de la tienda</label>
           <input type="text" class="auth-input" id="integShopifyDominio" placeholder="mi-tienda.myshopify.com" autocomplete="off" style="padding-left:14px; margin-bottom:16px;">
@@ -2866,14 +2973,28 @@ async function cargarIntegraciones(){
   }
 }
 
+// A partir del dominio guardado (ej. "yebron-style-2.myshopify.com") arma un
+// nombre más lindo para mostrar en la tarjeta ("Yebron Style 2"). No tenemos
+// el nombre real de la tienda (eso requeriría otra llamada a la Admin API),
+// así que esto es solo cosmético a partir del dominio que ya tenemos.
+function nombreTiendaDesdeDominio(dominio){
+  const sub = String(dominio || '').split('.myshopify.com')[0].trim();
+  if(!sub) return 'Mi tienda';
+  return sub.split(/[-_]+/).filter(Boolean).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+}
+
 function renderEstadoShopify(data){
   const conectado = !!data.shopifyConectado;
   document.getElementById('integShopifyConectado').style.display = conectado ? 'block' : 'none';
   document.getElementById('integShopifyFormWrap').style.display = conectado ? 'none' : 'block';
+  document.getElementById('integShopifyBadgeTienda').style.display = conectado ? 'inline-flex' : 'none';
   if(conectado){
     document.getElementById('integShopifyDominioTexto').textContent = data.shopifyStoreDomain || '';
+    document.getElementById('integShopifyNombreTienda').textContent = nombreTiendaDesdeDominio(data.shopifyStoreDomain);
     document.getElementById('integShopifyClientIdTexto').textContent = data.shopifyClientId || '';
     document.getElementById('integShopifyTokenTexto').textContent = data.shopifyClientSecretParcial || '';
+    document.getElementById('integShopifyDatosPanel').classList.remove('open');
+    document.getElementById('integShopifyDatosBtn').textContent = '📄 Datos de la tienda';
   } else {
     document.getElementById('integShopifyDominio').value = '';
     document.getElementById('integShopifyClientId').value = '';
@@ -3000,6 +3121,21 @@ async function desconectarFal(){
 
 document.getElementById('integShopifyConectarBtn').onclick = conectarShopify;
 document.getElementById('integShopifyDesconectarBtn').onclick = desconectarShopify;
+// Botón "Datos de la tienda" en la tarjeta de la tienda conectada — muestra
+// u oculta el ID de Cliente y el secreto guardado (nunca el secreto completo).
+document.getElementById('integShopifyDatosBtn').onclick = ()=>{
+  const panel = document.getElementById('integShopifyDatosPanel');
+  const btn = document.getElementById('integShopifyDatosBtn');
+  const abrir = !panel.classList.contains('open');
+  panel.classList.toggle('open', abrir);
+  btn.textContent = abrir ? '✕ Ocultar datos' : '📄 Datos de la tienda';
+};
+// Panel desplegable "¿Cómo obtener las credenciales de Shopify?" — arranca
+// cerrado, se abre/cierra con cada clic (nunca se cierra solo).
+document.getElementById('shopifyHelpToggle').onclick = ()=>{
+  document.getElementById('shopifyHelpToggle').classList.toggle('open');
+  document.getElementById('shopifyHelpPanel').classList.toggle('open');
+};
 document.getElementById('integFalConectarBtn').onclick = conectarFal;
 document.getElementById('integFalDesconectarBtn').onclick = desconectarFal;
 // Ojitos de mostrar/ocultar — mismo patrón que en Mi Perfil / la pantalla de entrada.
