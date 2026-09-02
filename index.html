@@ -257,6 +257,21 @@
   .modal-btn-create:hover{ filter:brightness(1.06); }
   .modal-btn-create:disabled{ opacity:0.5; cursor:not-allowed; }
 
+  /* ---------- Modal: elegir ángulo de venta (IA) ---------- */
+  .angulo-modal-card{ width:560px; max-width:92vw; }
+  .angulo-opcion{
+    border:1.5px solid #ddd4bd; border-radius:8px; padding:14px 16px; margin-bottom:10px;
+    cursor:pointer; font-size:13.5px; line-height:1.5; color:#1c1810; background:#fff;
+    transition:border-color .15s, background .15s, box-shadow .15s;
+  }
+  .angulo-opcion:last-child{ margin-bottom:0; }
+  .angulo-opcion:hover{ border-color:var(--coral); background:#fdf8ec; box-shadow:0 2px 10px rgba(212,169,53,0.18); }
+  .angulo-opcion-num{
+    display:inline-block; font-family:'IBM Plex Sans'; font-size:10.5px; font-weight:700; color:#8a8270;
+    text-transform:uppercase; letter-spacing:.04em; margin-bottom:5px;
+  }
+  .angulo-opcion-texto{ font-weight:600; }
+
   /* ---------- Modal: Plantillas de Secciones ---------- */
   .template-modal{
     width:1440px; max-width:97vw; max-height:92vh; background:var(--paper); color:#1c1810;
@@ -1678,6 +1693,37 @@
     <div class="modal-actions">
       <button class="modal-btn modal-btn-cancel" id="modalCancelBtn">Cancelar</button>
       <button class="modal-btn modal-btn-create" id="modalCreateBtn" disabled>Crear Producto</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: elegir uno de los 3 ángulos de venta que propone la IA (primer
+     paso de "Completar los campos con IA") — se queda abierto hasta que la
+     persona elija uno o lo cierre, nunca se cierra solo. -->
+<div class="modal-overlay" id="angulosModal">
+  <div class="modal-card angulo-modal-card">
+    <div class="modal-head">
+      <h3 class="modal-title">✦ Elegí el ángulo de venta</h3>
+      <button class="modal-close" id="angulosCloseBtn">✕</button>
+    </div>
+    <p class="modal-sub">La IA analizó tu producto y propone estos 3 ángulos. El que elijas es el que se va a usar para redactar el resto de los campos y para generar las secciones de la landing.</p>
+    <div id="angulosOpcionesList"></div>
+  </div>
+</div>
+
+<!-- MODAL: avisa qué secciones no se pudieron generar (reemplaza al viejo
+     alert() del navegador — se queda abierto hasta que la persona lo cierre
+     ella misma, nunca se cierra solo con un timer). -->
+<div class="modal-overlay" id="seccionesErrorModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 class="modal-title">⚠️ Algunas secciones no se generaron</h3>
+      <button class="modal-close" id="seccionesErrorCloseBtn">✕</button>
+    </div>
+    <p class="modal-sub">Las demás se generaron bien. Estas tuvieron un problema:</p>
+    <div id="seccionesErrorLista" style="max-height:300px; overflow-y:auto; margin-bottom:22px;"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-create" id="seccionesErrorCerrarBtn">Entendido</button>
     </div>
   </div>
 </div>
@@ -3452,14 +3498,37 @@ function refreshAllCounters(){ COUNTED_FIELDS.forEach(updateCounter); }
 const fichaInput = document.getElementById('fProducto');
 const aiFillBtn2 = document.getElementById('aiFillBtn2');
 
-// ---------------- Conexión con la API real de Claude ----------------
-// La API Key ya vive en el servidor (backend en Railway, variable de entorno
-// ANTHROPIC_API_KEY) — el taller ya no pide ni maneja ninguna key en el navegador.
-async function callClaudeBackend(ficha, productName){
-  const response = await apiFetch(BACKEND_URL + '/ia/texto/generar-copy', {
+// ---------------- Conexión con la API real (fal.ai / Claude) ----------------
+// La clave ya vive conectada en "Integraciones" (una por cada usuario) — el
+// taller ya no pide ni maneja ninguna key en el navegador.
+
+// Paso 1 de "Completar con IA": le pide al servidor 3 ángulos de venta
+// distintos, calculados a partir de los detalles del producto.
+async function callGenerarAngulosBackend(ficha, productName){
+  const response = await apiFetch(BACKEND_URL + '/ia/texto/generar-angulos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nombreProducto: productName, detallesProducto: ficha }),
+  });
+
+  if(!response.ok){
+    const errText = await response.text();
+    throw new Error(`El servidor respondió ${response.status}: ${errText.slice(0,220)}`);
+  }
+  const datos = await response.json();
+  if(!Array.isArray(datos.angulos) || !datos.angulos.length){
+    throw new Error('El servidor no devolvió ningún ángulo de venta.');
+  }
+  return datos.angulos;
+}
+
+// Paso 2: con el ángulo ya elegido por el usuario (anguloElegido), le pide
+// al servidor que redacte el resto de los campos en base a ese ángulo.
+async function callClaudeBackend(ficha, productName, anguloElegido){
+  const response = await apiFetch(BACKEND_URL + '/ia/texto/generar-copy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombreProducto: productName, detallesProducto: ficha, anguloElegido }),
   });
 
   if(!response.ok){
@@ -3572,9 +3641,26 @@ function generateContextFromFicha(ficha){
 // Estados de carga tipo "equipo experto" (análisis por etapas, no instantáneo)
 const AI_LOADING_STAGES = [
   '✦ Analizando producto...',
-  '✦ Identificando ángulo de venta...',
-  '✦ Creando estrategia de conversión...'
+  '✦ Identificando ángulos de venta...',
+  '✦ Preparando 3 opciones...'
 ];
+// Segunda tanda de carga, mientras se redacta el resto de los campos ya con
+// el ángulo elegido por el usuario.
+const ANGULO_ELEGIDO_LOADING_STAGES = [
+  '✦ Redactando el resto de la landing con este ángulo...',
+  '✦ Afinando el mensaje de conversión...'
+];
+
+function fillFields(ctx){
+  document.getElementById('fAngulo').value = ctx.angulo || '';
+  document.getElementById('fAnguloNombre').value = ctx.angulo || '';
+  document.getElementById('fProblema').value = ctx.problema || '';
+  document.getElementById('fAvatar').value = ctx.avatar || '';
+  document.getElementById('fResultado').value = ctx.resultado || '';
+  document.getElementById('fSolucion').value = ctx.solucion || '';
+  document.getElementById('fMecanismo').value = ctx.mecanismo || '';
+  refreshAllCounters();
+}
 
 aiFillBtn2.onclick = async ()=>{
   const ficha = fichaInput.value.trim();
@@ -3595,36 +3681,27 @@ aiFillBtn2.onclick = async ()=>{
     }
   }, 650);
 
-  function fillFields(ctx){
-    document.getElementById('fAngulo').value = ctx.angulo || '';
-    document.getElementById('fAnguloNombre').value = ctx.angulo || '';
-    document.getElementById('fProblema').value = ctx.problema || '';
-    document.getElementById('fAvatar').value = ctx.avatar || '';
-    document.getElementById('fResultado').value = ctx.resultado || '';
-    document.getElementById('fSolucion').value = ctx.solucion || '';
-    document.getElementById('fMecanismo').value = ctx.mecanismo || '';
-    refreshAllCounters();
-  }
-
   function finish(){
     clearInterval(stageTimer);
     aiFillBtn2.textContent = '✦ Completar los campos de abajo con IA a partir de los detalles del producto';
     aiFillBtn2.disabled = false;
   }
 
-  // IA real conectada en el servidor: ya no depende de ninguna key pegada en el navegador.
+  // Paso 1: pedirle a la IA 3 ángulos de venta distintos, para que el
+  // usuario elija con cuál seguir (en vez de que la IA elija uno sola).
   try{
-    const [ctx] = await Promise.all([
-      callClaudeBackend(ficha, currentProduct),
+    const [angulos] = await Promise.all([
+      callGenerarAngulosBackend(ficha, currentProduct),
       new Promise(res=> setTimeout(res, AI_LOADING_STAGES.length * 650))
     ]);
-    fillFields(ctx);
     finish();
+    mostrarAngulosModal(angulos, ficha);
   }catch(err){
     finish();
-    // Si el servidor falla (ej. aún no tiene configurada ANTHROPIC_API_KEY, o sin conexión),
-    // no se deja al usuario sin nada: se completa con el modo demo (heurísticas) y se le avisa.
-    console.warn('No se pudo completar con la IA real del servidor, se usó el modo demo:', err.message);
+    // Si el servidor falla (ej. todavía no conectó su clave de fal.ai en
+    // "Integraciones", o sin conexión), no se deja al usuario sin nada: se
+    // completa todo de una con el modo demo (heurísticas) y se le avisa.
+    console.warn('No se pudieron generar ángulos con la IA real del servidor, se usó el modo demo:', err.message);
     const ctx = generateContextFromFicha(ficha);
     fillFields(ctx);
     mostrarAvisoCampo(
@@ -3634,6 +3711,81 @@ aiFillBtn2.onclick = async ()=>{
     );
   }
 };
+
+// Muestra el modal con los 3 ángulos que propuso la IA — la persona elige
+// uno haciendo clic sobre él, lo que dispara el paso 2 (redactar el resto
+// de los campos en base a ese ángulo puntual). Se queda abierto hasta que
+// elija uno o lo cierre ella misma (✕ o tocando afuera).
+function mostrarAngulosModal(angulos, ficha){
+  const lista = document.getElementById('angulosOpcionesList');
+  lista.innerHTML = '';
+  angulos.forEach((texto, i)=>{
+    const opcion = document.createElement('div');
+    opcion.className = 'angulo-opcion';
+    const num = document.createElement('span');
+    num.className = 'angulo-opcion-num';
+    num.textContent = `Opción ${i+1}`;
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'angulo-opcion-texto';
+    cuerpo.textContent = texto; // textContent, no innerHTML — es texto libre generado por la IA
+    opcion.appendChild(num);
+    opcion.appendChild(cuerpo);
+    opcion.onclick = ()=> elegirAngulo(texto, ficha);
+    lista.appendChild(opcion);
+  });
+  document.getElementById('angulosModal').classList.add('active');
+}
+function cerrarAngulosModal(){
+  document.getElementById('angulosModal').classList.remove('active');
+}
+document.getElementById('angulosCloseBtn').onclick = cerrarAngulosModal;
+document.getElementById('angulosModal').addEventListener('click', (e)=>{
+  if(e.target.id === 'angulosModal') cerrarAngulosModal();
+});
+
+// Paso 2: ya con el ángulo elegido, le pide a la IA que redacte el resto de
+// los campos (problema, avatar, resultado, solución, mecanismo) 100%
+// coherentes con ese ángulo, y completa el formulario con todo.
+async function elegirAngulo(anguloTexto, ficha){
+  cerrarAngulosModal();
+  aiFillBtn2.disabled = true;
+  let stage = 0;
+  aiFillBtn2.textContent = ANGULO_ELEGIDO_LOADING_STAGES[0];
+  const stageTimer = setInterval(()=>{
+    stage++;
+    if(stage < ANGULO_ELEGIDO_LOADING_STAGES.length){
+      aiFillBtn2.textContent = ANGULO_ELEGIDO_LOADING_STAGES[stage];
+    }
+  }, 650);
+
+  function finish(){
+    clearInterval(stageTimer);
+    aiFillBtn2.textContent = '✦ Completar los campos de abajo con IA a partir de los detalles del producto';
+    aiFillBtn2.disabled = false;
+  }
+
+  try{
+    const [ctx] = await Promise.all([
+      callClaudeBackend(ficha, currentProduct, anguloTexto),
+      new Promise(res=> setTimeout(res, ANGULO_ELEGIDO_LOADING_STAGES.length * 650))
+    ]);
+    fillFields({ ...ctx, angulo: anguloTexto });
+    finish();
+  }catch(err){
+    finish();
+    // El usuario ya eligió su ángulo, así que no lo perdemos aunque falle
+    // el redactado del resto: se completa el resto en modo demo pero se
+    // respeta el ángulo que la persona eligió, y se le avisa del detalle.
+    console.warn('No se pudo redactar el resto de los campos con la IA real del servidor, se usó el modo demo:', err.message);
+    const ctx = generateContextFromFicha(ficha);
+    fillFields({ ...ctx, angulo: anguloTexto });
+    mostrarAvisoCampo(
+      'Elegiste tu ángulo, pero no se pudo conectar con la IA real del servidor para redactar el resto de los campos — se completaron en modo demo (simulado). Detalle: ' + err.message,
+      null,
+      [],
+    );
+  }
+}
 
 // ---------------- MAPA DE IMÁGENES REALES POR SECCIÓN (para armar la landing real) ----------------
 const PLANTILLA_DESCRIPCIONES = {
@@ -4772,7 +4924,7 @@ document.getElementById('generateBtn').onclick = async ()=>{
       st.gallery.push({ id:g.id, sectionKey:g.sectionKey, sectionLabel:g.sectionLabel, color:g.color, templateId:g.templateId, image: imgUrl, ratio: 1, price:'$249.900', edited:false });
     }catch(err){
       console.error('Error generando', g.sectionLabel, err);
-      errores.push(g.sectionLabel + ': ' + err.message);
+      errores.push({ seccion: g.sectionLabel, mensaje: err.message });
     }
     done++;
     progress.classList.remove('indeterminate');
@@ -4787,9 +4939,43 @@ document.getElementById('generateBtn').onclick = async ()=>{
   renderAll();
   document.getElementById('galleryWrap').scrollIntoView({behavior:'smooth', block:'start'});
   if(errores.length){
-    alert('Algunas secciones no se pudieron generar:\n\n' + errores.join('\n'));
+    mostrarSeccionesErrorModal(errores);
   }
 };
+
+// Avisa qué secciones no se pudieron generar — reemplaza al viejo alert()
+// nativo del navegador por un modal propio del taller (mismo estilo que el
+// resto: fondo "papel" claro, tarjeta centrada). A propósito NO se cierra
+// solo con un setTimeout: se queda abierto hasta que la persona lo cierre a
+// mano (✕, "Entendido", o tocando afuera), así nadie se queda sin leerlo
+// porque tardó en pasar la vista por la pantalla.
+function mostrarSeccionesErrorModal(errores){
+  const lista = document.getElementById('seccionesErrorLista');
+  lista.innerHTML = '';
+  errores.forEach(e=>{
+    const fila = document.createElement('div');
+    fila.style.cssText = 'background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.45;';
+    const titulo = document.createElement('b');
+    titulo.style.color = '#1c1810';
+    titulo.textContent = e.seccion; // textContent, no innerHTML — el mensaje puede traer texto libre (del backend o de un error de red)
+    const mensaje = document.createElement('div');
+    mensaje.style.color = '#8a4040';
+    mensaje.style.marginTop = '2px';
+    mensaje.textContent = e.mensaje;
+    fila.appendChild(titulo);
+    fila.appendChild(mensaje);
+    lista.appendChild(fila);
+  });
+  document.getElementById('seccionesErrorModal').classList.add('active');
+}
+function cerrarSeccionesErrorModal(){
+  document.getElementById('seccionesErrorModal').classList.remove('active');
+}
+document.getElementById('seccionesErrorCloseBtn').onclick = cerrarSeccionesErrorModal;
+document.getElementById('seccionesErrorCerrarBtn').onclick = cerrarSeccionesErrorModal;
+document.getElementById('seccionesErrorModal').addEventListener('click', (e)=>{
+  if(e.target.id === 'seccionesErrorModal') cerrarSeccionesErrorModal();
+});
 
 // ---------------- GALLERY ----------------
 function renderGallery(){
