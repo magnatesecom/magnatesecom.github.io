@@ -1521,9 +1521,8 @@
               </div>
               <div class="fb-input-row">
                 <input type="text" id="fAnguloNombre" placeholder="Ej. Dolor de espalda">
-                <button class="btn btn-coral" style="flex-shrink:0;">✓ Guardar ángulo de venta</button>
               </div>
-              <div class="fb-help">Todas las secciones de landing que generes quedarán agrupadas bajo este ángulo, con este nombre. Escribe otro nombre para empezar a agrupar las secciones de landing en otra pestaña.</div>
+              <div class="fb-help">Todas las secciones de landing que generes quedarán agrupadas bajo este ángulo, con este nombre.</div>
             </div>
 
             <div class="field-block">
@@ -5406,7 +5405,7 @@ async function apiGuardarLanding(nombreProducto, landing){
     const resp = await apiFetch(BACKEND_URL + '/landings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante, movimiento: !!landing.movimiento }),
+      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante, movimiento: !!landing.movimiento, barra: !!landing.barra, barraTexto: landing.barraTexto || undefined, barraColor: landing.barraColor || undefined, barraColorTexto: landing.barraColorTexto || undefined }),
     });
     if(!resp.ok) return null;
     return await resp.json();
@@ -5675,6 +5674,45 @@ function realMovimientoCardHtml(landing){
   `;
 }
 
+// Barra de texto que se desliza sola de un lado a otro (ver realBarraCardHtml
+// más abajo), arriba de TODO el resto de la landing — imágenes y botones. El
+// texto se edita tocándolo directo (contenteditable, igual que el botón
+// flotante), y el color con el circulito de la esquina. El contenido se
+// repite DOS VECES seguidas dentro del div animado (una visible, la otra con
+// aria-hidden porque es solo relleno para el loop): al desplazarse -50% del
+// ancho total (que es el ancho de UNA sola copia), el scroll vuelve a 0% sin
+// que se note ningún salto — mismo truco que usa seccionLandingLiquid en el
+// backend para la página real.
+function realBarraHtml(landing){
+  if(!landing.barra) return '';
+  const texto = realEscHtml(landing.barraTexto || 'CALIDAD GARANTIZADA  •  ENVÍO RÁPIDO  •  PAGO SEGURO');
+  const color = landing.barraColor || '#f0b90b';
+  const colorTexto = landing.barraColorTexto || realColorTextoContraste(color);
+  return `<div style="position:relative; width:100%; overflow:hidden; white-space:nowrap; background:${color};">
+    <button type="button" data-quitar-barra title="Quitar barra de movimiento" style="position:absolute; top:1px; right:6px; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,0.35); border:none; color:#fff; font-size:11px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; z-index:3;">×</button>
+    <input type="color" data-color-barra value="${color}" title="Elegir color de la barra" style="position:absolute; top:1px; left:6px; width:18px; height:18px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none; z-index:3;">
+    <div class="realBarraTrack" style="display:inline-block; padding:9px 0;">
+      <span contenteditable="true" spellcheck="false" data-texto-barra title="Tocá para escribir otro texto" style="display:inline-block; padding-right:36px; outline:none; cursor:text; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span><span aria-hidden="true" style="display:inline-block; padding-right:36px; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>
+    </div>
+  </div>`;
+}
+
+// Tarjeta clicable "Agregar Barra de Movimiento" — mismo patrón que las
+// otras tres de arriba: agrega/quita la barra de texto deslizante al tocarla.
+function realBarraCardHtml(landing){
+  const activo = !!landing.barra;
+  return `
+    <button type="button" id="realBtnBarraCard" title="${activo ? 'Quitar barra de movimiento' : 'Agregar barra de movimiento'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
+      <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${activo ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${activo ? '🔓' : '🏷'}</span>
+      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${activo ? 'Quitar Barra de Movimiento' : 'Agregar Barra de Movimiento'}</span>
+      <span class="ce-info-wrap" onclick="event.stopPropagation();">
+        <span class="ce-info-icon">?</span>
+        <span class="ce-info-tooltip">Barra de texto que se desliza sola de un lado a otro, arriba de toda la landing — tocá el texto para escribir el tuyo.</span>
+      </span>
+    </button>
+  `;
+}
+
 // Tarjeta clicable (arriba a la derecha del teléfono, junto a la de Botón
 // Flotante). Reemplaza el texto de instrucciones que antes vivía en el panel
 // izquierdo: ahora es un botón real que prende/apaga los "+" entre cada
@@ -5703,7 +5741,7 @@ function realVerLandingCompleta(landing){
   // derecho (Editor de elementos), no toca landing.items por sí solo.
   let mostrarInsertarBoton = false;
   overlay.innerHTML = `
-    <style>@keyframes realBtnShake{0%,100%{transform:translateX(0) rotate(0deg);}92%{transform:translateX(0) rotate(0deg);}93%{transform:translateX(-3px) rotate(-2deg);}94%{transform:translateX(3px) rotate(2deg);}95%{transform:translateX(-3px) rotate(-2deg);}96%{transform:translateX(3px) rotate(2deg);}97%{transform:translateX(-2px) rotate(-1deg);}98%,99%{transform:translateX(0) rotate(0deg);}}</style>
+    <style>@keyframes realBtnShake{0%,100%{transform:translateX(0) rotate(0deg);}92%{transform:translateX(0) rotate(0deg);}93%{transform:translateX(-3px) rotate(-2deg);}94%{transform:translateX(3px) rotate(2deg);}95%{transform:translateX(-3px) rotate(-2deg);}96%{transform:translateX(3px) rotate(2deg);}97%{transform:translateX(-2px) rotate(-1deg);}98%,99%{transform:translateX(0) rotate(0deg);}}@keyframes realBarraScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}.realBarraTrack{animation:realBarraScroll 14s linear infinite;}.realBarraTrack.paused{animation-play-state:paused;}</style>
     <div style="display:flex; max-width:1140px; width:100%; max-height:90vh; background:var(--ink-2); border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;" onclick="event.stopPropagation();">
       <div style="width:230px; flex-shrink:0; padding:20px; display:flex; flex-direction:column; gap:10px; border-right:1px solid var(--line-strong); overflow-y:auto;">
         <div style="font-size:11px; color:var(--text-dimmer); text-transform:uppercase; letter-spacing:0.04em;">Landing completa</div>
@@ -5726,6 +5764,7 @@ function realVerLandingCompleta(landing){
             <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; font-size:9px; font-weight:700; color:rgba(28,39,51,0.75); background:#f5f1e4;">
               <span>4:16</span><span>Powered by <span style="color:var(--coral);">Ecom Magnates</span></span>
             </div>
+            <div id="realPhoneBarra">${realBarraHtml(landing)}</div>
             <div id="realPhoneSeq">${realSecuenciaEditableHtml(landing, mostrarInsertarBoton)}</div>
             <div id="realPhoneBotonFlotante">${realBotonFlotanteHtml(landing)}</div>
             <div style="display:flex; align-items:center; justify-content:space-around; padding:8px 10px; background:#f5f1e4; position:sticky; bottom:0;">
@@ -5740,6 +5779,7 @@ function realVerLandingCompleta(landing){
         <div id="realInsertarBotonCardWrap">${realInsertarBotonCardHtml(mostrarInsertarBoton)}</div>
         <div id="realBotonFlotanteCardWrap">${realBotonFlotanteCardHtml(landing)}</div>
         <div id="realMovimientoCardWrap">${realMovimientoCardHtml(landing)}</div>
+        <div id="realBarraCardWrap">${realBarraCardHtml(landing)}</div>
       </div>
     </div>
     <button id="realFullModalClose" style="position:absolute; top:24px; right:28px; background:none; border:none; color:#fff; font-size:26px; cursor:pointer; line-height:1;">×</button>
@@ -5910,6 +5950,66 @@ function realVerLandingCompleta(landing){
   }
   wireMovimientoCard();
 
+  // Tarjeta "Agregar Barra de Movimiento": repinta la barra en el teléfono y
+  // la propia tarjeta, y sincroniza el cambio al backend.
+  function actualizarBarra(){
+    overlay.querySelector('#realPhoneBarra').innerHTML = realBarraHtml(landing);
+    overlay.querySelector('#realBarraCardWrap').innerHTML = realBarraCardHtml(landing);
+    wireBarraCard();
+    apiActualizarLanding(landing, { barra: !!landing.barra, barraTexto: landing.barraTexto, barraColor: landing.barraColor, barraColorTexto: landing.barraColorTexto });
+  }
+  function wireBarraCard(){
+    const btn = overlay.querySelector('#realBtnBarraCard');
+    if(!btn) return;
+    btn.onclick = ()=>{
+      landing.barra = !landing.barra;
+      actualizarBarra();
+    };
+  }
+  wireBarraCard();
+
+  // La "×" sobre la barra ya agregada también la quita — delegado sobre el
+  // contenedor fijo #realPhoneBarra (nunca se reemplaza a sí mismo, solo su
+  // contenido de adentro, así que un solo addEventListener alcanza).
+  const barraEl = overlay.querySelector('#realPhoneBarra');
+  barraEl.addEventListener('click', (e)=>{
+    if(e.target.closest('[data-quitar-barra]')){
+      landing.barra = false;
+      actualizarBarra();
+    }
+  });
+
+  // Mientras el estudiante está escribiendo el texto de la barra, se pausa
+  // la animación (si no, el texto se movería mientras intenta editarlo) —
+  // se reanuda apenas saca el foco, momento en el que también se guarda.
+  barraEl.addEventListener('focusin', (e)=>{
+    const span = e.target.closest('[data-texto-barra]');
+    if(!span) return;
+    const track = span.closest('.realBarraTrack');
+    if(track) track.classList.add('paused');
+  });
+  barraEl.addEventListener('focusout', (e)=>{
+    const span = e.target.closest('[data-texto-barra]');
+    if(!span) return;
+    landing.barraTexto = span.textContent.trim();
+    apiActualizarLanding(landing, { barraTexto: landing.barraTexto });
+    // Repinta entera (no solo saca "paused") para que la segunda copia oculta
+    // del texto (la que hace posible el loop sin salto, ver realBarraHtml)
+    // también quede igual a lo que el estudiante acaba de escribir.
+    barraEl.innerHTML = realBarraHtml(landing);
+  });
+
+  // Mismo selector de color nativo que los otros botones — repinta porque el
+  // color de fondo/texto de la barra cambia.
+  barraEl.addEventListener('change', (e)=>{
+    const input = e.target.closest('[data-color-barra]');
+    if(!input) return;
+    landing.barraColor = input.value;
+    landing.barraColorTexto = realColorTextoContraste(landing.barraColor);
+    apiActualizarLanding(landing, { barraColor: landing.barraColor, barraColorTexto: landing.barraColorTexto });
+    barraEl.innerHTML = realBarraHtml(landing);
+  });
+
   // La "×" sobre el botón "COMPRAR AHORA" ya insertado en el teléfono también
   // lo quita — delegado sobre el contenedor fijo #realPhoneBotonFlotante (no
   // se vuelve a re-enganchar porque el contenedor en sí nunca se reemplaza,
@@ -5990,6 +6090,10 @@ async function enviarLandingAShopify(landing, btnEl){
         botonFlotanteColor: landing.botonFlotanteColor || undefined,
         botonFlotanteColorTexto: landing.botonFlotanteColorTexto || undefined,
         movimiento: !!landing.movimiento,
+        barra: !!landing.barra,
+        barraTexto: landing.barraTexto || undefined,
+        barraColor: landing.barraColor || undefined,
+        barraColorTexto: landing.barraColorTexto || undefined,
         precio,
         precioComparacion,
       }),
@@ -6002,7 +6106,19 @@ async function enviarLandingAShopify(landing, btnEl){
     if(data.url){
       landing.shopifyUrl = data.url;
       apiActualizarLanding(landing, { shopifyUrl: data.url });
-      window.open(data.url, '_blank');
+      // Shopify guarda en caché (CDN) las páginas de producto que ya tuvieron
+      // visitas, y una actualización hecha por la API (como esta) no siempre
+      // rompe ese caché sola — a diferencia de editar el producto a mano
+      // desde el admin de Shopify, que sí lo hace. Por eso, al reenviar
+      // ("Volver a publicar"), el producto SÍ queda actualizado del lado de
+      // Shopify, pero la pestaña que se abre podía seguir mostrando la
+      // versión vieja guardada en caché — dando la sensación de que "no viajó
+      // de nuevo". Agregarle un parámetro random a la URL de esta vista
+      // previa puntual evita que el navegador/CDN reuse esa copia vieja. El
+      // link que se guarda en la landing (shopifyUrl) queda limpio, sin este
+      // parámetro, para no ensuciar la URL real del producto.
+      const urlVistaPrevia = data.url + (data.url.includes('?') ? '&' : '?') + '_v=' + Date.now();
+      window.open(urlVistaPrevia, '_blank');
     }
     // El backend publica igual aunque algo secundario falle (guardar el
     // metafield de la secuencia de botones, o actualizar la sección del
@@ -7482,6 +7598,10 @@ async function cargarLandingsDesdeBackend(){
         items: fila.items_json || [],
         botonFlotante: !!fila.boton_flotante,
         movimiento: !!fila.movimiento,
+        barra: !!fila.barra,
+        barraTexto: fila.barra_texto || undefined,
+        barraColor: fila.barra_color || undefined,
+        barraColorTexto: fila.barra_color_texto || undefined,
         shopifyUrl: fila.shopify_url || null,
       });
     });
