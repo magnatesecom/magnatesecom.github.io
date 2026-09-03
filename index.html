@@ -5405,7 +5405,7 @@ async function apiGuardarLanding(nombreProducto, landing){
     const resp = await apiFetch(BACKEND_URL + '/landings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante, movimiento: !!landing.movimiento, barra: !!landing.barra, barraTexto: landing.barraTexto || undefined, barraColor: landing.barraColor || undefined, barraColorTexto: landing.barraColorTexto || undefined }),
+      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante, movimiento: !!landing.movimiento, barra: !!landing.barra, barraTexto: landing.barraTexto || undefined, barraColor: landing.barraColor || undefined, barraColorTexto: landing.barraColorTexto || undefined, barraVelocidad: landing.barraVelocidad || undefined }),
     });
     if(!resp.ok) return null;
     return await resp.json();
@@ -5688,12 +5688,26 @@ function realBarraHtml(landing){
   const texto = realEscHtml(landing.barraTexto || 'CALIDAD GARANTIZADA  •  ENVÍO RÁPIDO  •  PAGO SEGURO');
   const color = landing.barraColor || '#f0b90b';
   const colorTexto = landing.barraColorTexto || realColorTextoContraste(color);
+  const duracion = landing.barraVelocidad || 14;
+  // El truco de loop sin salto (ver comentario de arriba) solo se ve bien si
+  // el contenido de UNA sola copia ya es más ancho que la pantalla — si el
+  // estudiante escribe un texto corto, esa copia queda angosta y se ve un
+  // tramo de color liso (sin letras) hasta que llega la copia siguiente. Para
+  // evitarlo, cada copia repite el texto varias veces seguidas (no una sola),
+  // así siempre hay letras de punta a punta sea cual sea el largo del texto o
+  // el ancho de la pantalla. Solo la PRIMERA aparición de cada copia queda
+  // editable (contenteditable) — las repeticiones de relleno son de solo
+  // lectura (aria-hidden), para no confundir al estudiante con texto
+  // duplicado que pueda tocar por error.
+  const REPETICIONES = 12;
+  const spanFijo = `<span aria-hidden="true" style="display:inline-block; padding-right:36px; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>`;
+  const spanEditable = `<span contenteditable="true" spellcheck="false" data-texto-barra title="Tocá para escribir otro texto" style="display:inline-block; padding-right:36px; outline:none; cursor:text; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>`;
+  const copiaEditable = spanEditable + spanFijo.repeat(REPETICIONES - 1);
+  const copiaOculta = spanFijo.repeat(REPETICIONES);
   return `<div style="position:relative; width:100%; overflow:hidden; white-space:nowrap; background:${color};">
     <button type="button" data-quitar-barra title="Quitar barra de movimiento" style="position:absolute; top:1px; right:6px; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,0.35); border:none; color:#fff; font-size:11px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; z-index:3;">×</button>
     <input type="color" data-color-barra value="${color}" title="Elegir color de la barra" style="position:absolute; top:1px; left:6px; width:18px; height:18px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none; z-index:3;">
-    <div class="realBarraTrack" style="display:inline-block; padding:9px 0;">
-      <span contenteditable="true" spellcheck="false" data-texto-barra title="Tocá para escribir otro texto" style="display:inline-block; padding-right:36px; outline:none; cursor:text; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span><span aria-hidden="true" style="display:inline-block; padding-right:36px; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>
-    </div>
+    <div class="realBarraTrack" style="display:inline-block; padding:9px 0; animation-duration:${duracion}s;">${copiaEditable}${copiaOculta}</div>
   </div>`;
 }
 
@@ -5701,15 +5715,31 @@ function realBarraHtml(landing){
 // otras tres de arriba: agrega/quita la barra de texto deslizante al tocarla.
 function realBarraCardHtml(landing){
   const activo = !!landing.barra;
+  const velocidad = landing.barraVelocidad || 14;
+  // Segundos que tarda la barra en dar una vuelta completa — menos segundos =
+  // se mueve más rápido. Se muestran como 3 botones simples (no un control de
+  // segundos crudo) para que quede claro sin explicación técnica.
+  const opcionesVelocidad = [
+    { seg: 22, label: 'Lenta' },
+    { seg: 14, label: 'Normal' },
+    { seg: 8, label: 'Rápida' },
+  ];
+  const selectorVelocidad = activo ? `
+    <div style="display:flex; gap:6px; padding:8px 30px 2px 14px;">
+      ${opcionesVelocidad.map(o => `<button type="button" data-velocidad-barra="${o.seg}" title="Velocidad ${o.label.toLowerCase()}" style="flex:1; padding:6px 0; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; border:1px solid ${velocidad === o.seg ? '#7c3aed' : 'var(--line-strong)'}; background:${velocidad === o.seg ? '#7c3aed' : 'transparent'}; color:${velocidad === o.seg ? '#fff' : 'var(--paper)'};">${o.label}</button>`).join('')}
+    </div>` : '';
   return `
-    <button type="button" id="realBtnBarraCard" title="${activo ? 'Quitar barra de movimiento' : 'Agregar barra de movimiento'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
-      <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${activo ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${activo ? '🔓' : '🏷'}</span>
-      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${activo ? 'Quitar Barra de Movimiento' : 'Agregar Barra de Movimiento'}</span>
-      <span class="ce-info-wrap" onclick="event.stopPropagation();">
-        <span class="ce-info-icon">?</span>
-        <span class="ce-info-tooltip">Barra de texto que se desliza sola de un lado a otro, arriba de toda la landing — tocá el texto para escribir el tuyo.</span>
-      </span>
-    </button>
+    <div>
+      <button type="button" id="realBtnBarraCard" title="${activo ? 'Quitar barra de movimiento' : 'Agregar barra de movimiento'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
+        <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${activo ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${activo ? '🔓' : '🏷'}</span>
+        <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${activo ? 'Quitar Barra de Movimiento' : 'Agregar Barra de Movimiento'}</span>
+        <span class="ce-info-wrap" onclick="event.stopPropagation();">
+          <span class="ce-info-icon">?</span>
+          <span class="ce-info-tooltip">Barra de texto que se desliza sola de un lado a otro, arriba de toda la landing — tocá el texto para escribir el tuyo.</span>
+        </span>
+      </button>
+      ${selectorVelocidad}
+    </div>
   `;
 }
 
@@ -5956,7 +5986,7 @@ function realVerLandingCompleta(landing){
     overlay.querySelector('#realPhoneBarra').innerHTML = realBarraHtml(landing);
     overlay.querySelector('#realBarraCardWrap').innerHTML = realBarraCardHtml(landing);
     wireBarraCard();
-    apiActualizarLanding(landing, { barra: !!landing.barra, barraTexto: landing.barraTexto, barraColor: landing.barraColor, barraColorTexto: landing.barraColorTexto });
+    apiActualizarLanding(landing, { barra: !!landing.barra, barraTexto: landing.barraTexto, barraColor: landing.barraColor, barraColorTexto: landing.barraColorTexto, barraVelocidad: landing.barraVelocidad });
   }
   function wireBarraCard(){
     const btn = overlay.querySelector('#realBtnBarraCard');
@@ -5965,6 +5995,12 @@ function realVerLandingCompleta(landing){
       landing.barra = !landing.barra;
       actualizarBarra();
     };
+    overlay.querySelectorAll('[data-velocidad-barra]').forEach(velBtn=>{
+      velBtn.onclick = ()=>{
+        landing.barraVelocidad = parseInt(velBtn.getAttribute('data-velocidad-barra'), 10);
+        actualizarBarra();
+      };
+    });
   }
   wireBarraCard();
 
@@ -6094,6 +6130,7 @@ async function enviarLandingAShopify(landing, btnEl){
         barraTexto: landing.barraTexto || undefined,
         barraColor: landing.barraColor || undefined,
         barraColorTexto: landing.barraColorTexto || undefined,
+        barraVelocidad: landing.barraVelocidad || undefined,
         precio,
         precioComparacion,
       }),
@@ -7602,6 +7639,7 @@ async function cargarLandingsDesdeBackend(){
         barraTexto: fila.barra_texto || undefined,
         barraColor: fila.barra_color || undefined,
         barraColorTexto: fila.barra_color_texto || undefined,
+        barraVelocidad: fila.barra_velocidad || undefined,
         shopifyUrl: fila.shopify_url || null,
       });
     });
