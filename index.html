@@ -5406,7 +5406,7 @@ async function apiGuardarLanding(nombreProducto, landing){
     const resp = await apiFetch(BACKEND_URL + '/landings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante }),
+      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante, movimiento: !!landing.movimiento }),
     });
     if(!resp.ok) return null;
     return await resp.json();
@@ -5563,12 +5563,13 @@ function realColorTextoContraste(hex){
 // el color con el circulito de la esquina (input type="color" nativo). Cada
 // botón guarda su propio texto y color por separado — si nunca se tocan, en
 // Shopify sale amarillo con "COMPRAR AHORA" por defecto.
-function realBotonComprarHtml(item){
+function realBotonComprarHtml(item, movimiento){
   const texto = realEscHtml(item.texto || 'COMPRAR AHORA');
   const color = item.color || '#f0b90b';
   const colorTexto = item.colorTexto || realColorTextoContraste(color);
+  const anim = movimiento ? 'animation:realBtnShake 4s ease-in-out infinite;' : '';
   return `<div style="padding:10px 14px; background:#f5f1e4; position:relative;">
-    <div style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:12px 16px; background:${color}; color:${colorTexto}; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:12px 16px; background:${color}; color:${colorTexto}; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em; ${anim}">
       <span style="flex-shrink:0; pointer-events:none;">🚚</span>
       <span contenteditable="true" spellcheck="false" data-texto-boton="${item.id}" title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
     </div>
@@ -5585,7 +5586,7 @@ function realSecuenciaEditableHtml(landing, mostrarGaps){
   let html = realInsertGapHtml(0, mostrarGaps);
   landing.items.forEach((item, i)=>{
     html += item.tipo === 'boton_comprar'
-      ? realBotonComprarHtml(item)
+      ? realBotonComprarHtml(item, landing.movimiento)
       : `<img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel||''}">`;
     html += realInsertGapHtml(i+1, mostrarGaps);
   });
@@ -5619,8 +5620,9 @@ function realBotonFlotanteHtml(landing){
   const texto = realEscHtml(landing.botonFlotanteTexto || 'COMPRAR AHORA');
   const color = landing.botonFlotanteColor || '#f0b90b';
   const colorTexto = landing.botonFlotanteColorTexto || realColorTextoContraste(color);
+  const anim = landing.movimiento ? 'animation:realBtnShake 4s ease-in-out infinite;' : '';
   return `<div style="position:sticky; bottom:34px; padding:8px 10px 0; background:transparent; z-index:4;">
-    <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; gap:8px; background:${color}; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22);">
+    <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; gap:8px; background:${color}; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22); ${anim}">
       <span style="flex-shrink:0; pointer-events:none;">🚚</span>
       <span contenteditable="true" spellcheck="false" data-texto-flotante title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
       <input type="color" data-color-flotante value="${color}" title="Elegir color del botón flotante" style="position:absolute; left:8px; top:-10px; width:20px; height:20px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
@@ -5645,6 +5647,29 @@ function realBotonFlotanteCardHtml(landing){
       <span class="ce-info-wrap" onclick="event.stopPropagation();">
         <span class="ce-info-icon">?</span>
         <span class="ce-info-tooltip">Botón "Comprar" fijo abajo del celular, que sigue al usuario al hacer scroll.</span>
+      </span>
+    </button>
+  `;
+}
+
+// Tarjeta clicable "Agregar Movimiento" (mismo estilo/patrón que la de
+// "Botón Flotante" de arriba): prende/apaga, para TODA la landing a la vez,
+// la animación de "shake" (se mueve solo cada 4 segundos, como el botón de
+// Releasit) en TODOS los botones "COMPRAR AHORA" — tanto los intercalados
+// entre secciones como el flotante, si lo tiene agregado. Es un interruptor
+// global por landing, no botón por botón (igual que hacen otras apps de
+// Shopify con este mismo tipo de animación). Se guarda en landing.movimiento
+// y viaja a Shopify como el metafield ecom_magnates.landing_movimiento — ver
+// seccionLandingLiquid en el backend.
+function realMovimientoCardHtml(landing){
+  const activo = !!landing.movimiento;
+  return `
+    <button type="button" id="realBtnMovimientoCard" title="${activo ? 'Quitar movimiento' : 'Agregar movimiento'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
+      <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${activo ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${activo ? '⏸' : '💫'}</span>
+      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${activo ? 'Quitar Movimiento' : 'Agregar Movimiento'}</span>
+      <span class="ce-info-wrap" onclick="event.stopPropagation();">
+        <span class="ce-info-icon">?</span>
+        <span class="ce-info-tooltip">Hace que TODOS los botones "COMPRAR AHORA" de esta landing (los intercalados y el flotante) se muevan solos cada tanto para llamar la atención, igual que otras apps de Shopify.</span>
       </span>
     </button>
   `;
@@ -5678,6 +5703,7 @@ function realVerLandingCompleta(landing){
   // derecho (Editor de elementos), no toca landing.items por sí solo.
   let mostrarInsertarBoton = false;
   overlay.innerHTML = `
+    <style>@keyframes realBtnShake{0%,100%{transform:translateX(0) rotate(0deg);}92%{transform:translateX(0) rotate(0deg);}93%{transform:translateX(-3px) rotate(-2deg);}94%{transform:translateX(3px) rotate(2deg);}95%{transform:translateX(-3px) rotate(-2deg);}96%{transform:translateX(3px) rotate(2deg);}97%{transform:translateX(-2px) rotate(-1deg);}98%,99%{transform:translateX(0) rotate(0deg);}}</style>
     <div style="display:flex; max-width:1140px; width:100%; max-height:90vh; background:var(--ink-2); border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;" onclick="event.stopPropagation();">
       <div style="width:230px; flex-shrink:0; padding:20px; display:flex; flex-direction:column; gap:10px; border-right:1px solid var(--line-strong); overflow-y:auto;">
         <div style="font-size:11px; color:var(--text-dimmer); text-transform:uppercase; letter-spacing:0.04em;">Landing completa</div>
@@ -5713,6 +5739,7 @@ function realVerLandingCompleta(landing){
         <div style="font-size:11px; color:var(--text-dimmer); line-height:1.4;">Elementos que puedes agregar a esta landing.</div>
         <div id="realInsertarBotonCardWrap">${realInsertarBotonCardHtml(mostrarInsertarBoton)}</div>
         <div id="realBotonFlotanteCardWrap">${realBotonFlotanteCardHtml(landing)}</div>
+        <div id="realMovimientoCardWrap">${realMovimientoCardHtml(landing)}</div>
       </div>
     </div>
     <button id="realFullModalClose" style="position:absolute; top:24px; right:28px; background:none; border:none; color:#fff; font-size:26px; cursor:pointer; line-height:1;">×</button>
@@ -5862,6 +5889,27 @@ function realVerLandingCompleta(landing){
   }
   wireBotonFlotanteCard();
 
+  // Tarjeta "Agregar Movimiento": prende/apaga la animación de "shake" en
+  // TODOS los botones de la landing a la vez — repinta la propia tarjeta, la
+  // secuencia de botones intercalados y el botón flotante (si lo tiene), y
+  // sincroniza el cambio al backend.
+  function actualizarMovimiento(){
+    overlay.querySelector('#realMovimientoCardWrap').innerHTML = realMovimientoCardHtml(landing);
+    wireMovimientoCard();
+    seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+    overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
+    apiActualizarLanding(landing, { movimiento: !!landing.movimiento });
+  }
+  function wireMovimientoCard(){
+    const btn = overlay.querySelector('#realBtnMovimientoCard');
+    if(!btn) return;
+    btn.onclick = ()=>{
+      landing.movimiento = !landing.movimiento;
+      actualizarMovimiento();
+    };
+  }
+  wireMovimientoCard();
+
   // La "×" sobre el botón "COMPRAR AHORA" ya insertado en el teléfono también
   // lo quita — delegado sobre el contenedor fijo #realPhoneBotonFlotante (no
   // se vuelve a re-enganchar porque el contenedor en sí nunca se reemplaza,
@@ -5941,6 +5989,7 @@ async function enviarLandingAShopify(landing, btnEl){
         botonFlotanteTexto: landing.botonFlotanteTexto || undefined,
         botonFlotanteColor: landing.botonFlotanteColor || undefined,
         botonFlotanteColorTexto: landing.botonFlotanteColorTexto || undefined,
+        movimiento: !!landing.movimiento,
         precio,
         precioComparacion,
       }),
@@ -7432,6 +7481,7 @@ async function cargarLandingsDesdeBackend(){
         num: fila.num,
         items: fila.items_json || [],
         botonFlotante: !!fila.boton_flotante,
+        movimiento: !!fila.movimiento,
         shopifyUrl: fila.shopify_url || null,
       });
     });
