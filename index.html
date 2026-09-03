@@ -5566,7 +5566,7 @@ function realBotonComprarHtml(item, movimiento){
   const texto = realEscHtml(item.texto || 'COMPRAR AHORA');
   const color = item.color || '#f0b90b';
   const colorTexto = item.colorTexto || realColorTextoContraste(color);
-  const anim = movimiento ? 'animation:realBtnShake 4s ease-in-out infinite;' : '';
+  const anim = movimiento ? 'animation:realBtnPulse 3s ease-in-out infinite;' : '';
   return `<div style="padding:10px 14px; background:#f5f1e4; position:relative;">
     <div style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:12px 16px; background:${color}; color:${colorTexto}; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em; ${anim}">
       <span style="flex-shrink:0; pointer-events:none;">🚚</span>
@@ -5619,7 +5619,7 @@ function realBotonFlotanteHtml(landing){
   const texto = realEscHtml(landing.botonFlotanteTexto || 'COMPRAR AHORA');
   const color = landing.botonFlotanteColor || '#f0b90b';
   const colorTexto = landing.botonFlotanteColorTexto || realColorTextoContraste(color);
-  const anim = landing.movimiento ? 'animation:realBtnShake 4s ease-in-out infinite;' : '';
+  const anim = landing.movimiento ? 'animation:realBtnPulse 3s ease-in-out infinite;' : '';
   return `<div style="position:sticky; bottom:34px; padding:8px 10px 0; background:transparent; z-index:4;">
     <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; gap:8px; background:${color}; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22); ${anim}">
       <span style="flex-shrink:0; pointer-events:none;">🚚</span>
@@ -5683,6 +5683,14 @@ function realMovimientoCardHtml(landing){
 // ancho total (que es el ancho de UNA sola copia), el scroll vuelve a 0% sin
 // que se note ningún salto — mismo truco que usa seccionLandingLiquid en el
 // backend para la página real.
+// Cuántas veces se repite el texto adentro de CADA una de las 2 copias del
+// truco de loop sin salto de la barra de movimiento (ver comentario dentro
+// de realBarraHtml). Vive acá afuera, como constante compartida, porque
+// wireBarraCard() (más abajo, adentro de realVerLandingCompleta) necesita el
+// mismo número para el preview en vivo del slider de velocidad — si alguna
+// vez cambia, hay que actualizarla en un solo lugar y no se pueden
+// desincronizar.
+const REAL_BARRA_REPETICIONES = 12;
 function realBarraHtml(landing){
   if(!landing.barra) return '';
   const texto = realEscHtml(landing.barraTexto || 'CALIDAD GARANTIZADA  •  ENVÍO RÁPIDO  •  PAGO SEGURO');
@@ -5698,19 +5706,18 @@ function realBarraHtml(landing){
   // editable (contenteditable) — las repeticiones de relleno son de solo
   // lectura (aria-hidden), para no confundir al estudiante con texto
   // duplicado que pueda tocar por error.
-  const REPETICIONES = 12;
-  // "barraVelocidad" guarda el valor BASE elegido (8/14/22, ver botones
-  // Lenta/Normal/Rápida) — pero como cada copia ahora tiene 12x más texto que
-  // antes (ver arriba), hay que recorrer 12x más distancia en la misma
-  // cantidad de segundos si no se ajusta la duración: eso hacía que la barra
-  // se viera mucho más rápida de lo esperado (bug reportado el 03/09). Se
-  // multiplica la duración por REPETICIONES para mantener la misma velocidad
-  // en píxeles por segundo sea cual sea la cantidad de repeticiones.
-  const duracion = (landing.barraVelocidad || 14) * REPETICIONES;
+  // "barraVelocidad" guarda el valor BASE elegido con el slider (segundos,
+  // ver realBarraCardHtml) — pero como cada copia tiene REAL_BARRA_REPETICIONES
+  // veces más texto que una sola, hay que recorrer esa misma cantidad de
+  // veces más distancia en los mismos segundos si no se ajusta la duración:
+  // eso hacía que la barra se viera mucho más rápida de lo esperado (bug
+  // reportado el 03/09). Se multiplica la duración para mantener la misma
+  // velocidad en píxeles por segundo sea cual sea la cantidad de repeticiones.
+  const duracion = (landing.barraVelocidad || 14) * REAL_BARRA_REPETICIONES;
   const spanFijo = `<span aria-hidden="true" style="display:inline-block; padding-right:36px; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>`;
   const spanEditable = `<span contenteditable="true" spellcheck="false" data-texto-barra title="Tocá para escribir otro texto" style="display:inline-block; padding-right:36px; outline:none; cursor:text; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>`;
-  const copiaEditable = spanEditable + spanFijo.repeat(REPETICIONES - 1);
-  const copiaOculta = spanFijo.repeat(REPETICIONES);
+  const copiaEditable = spanEditable + spanFijo.repeat(REAL_BARRA_REPETICIONES - 1);
+  const copiaOculta = spanFijo.repeat(REAL_BARRA_REPETICIONES);
   return `<div style="position:relative; width:100%; overflow:hidden; white-space:nowrap; background:${color};">
     <button type="button" data-quitar-barra title="Quitar barra de movimiento" style="position:absolute; top:1px; right:6px; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,0.35); border:none; color:#fff; font-size:11px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; z-index:3;">×</button>
     <input type="color" data-color-barra value="${color}" title="Elegir color de la barra" style="position:absolute; top:1px; left:6px; width:18px; height:18px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none; z-index:3;">
@@ -5720,20 +5727,29 @@ function realBarraHtml(landing){
 
 // Tarjeta clicable "Agregar Barra de Movimiento" — mismo patrón que las
 // otras tres de arriba: agrega/quita la barra de texto deslizante al tocarla.
+// Rango del slider de velocidad — segundos "base" (antes de multiplicar por
+// REAL_BARRA_REPETICIONES, ver realBarraHtml): 3 = muy rápida, 45 = muy
+// lenta. Valen para el HTML del slider y para el clamp defensivo en
+// wireBarraCard, por eso viven acá afuera como constantes compartidas.
+const REAL_BARRA_VELOCIDAD_MIN = 3;
+const REAL_BARRA_VELOCIDAD_MAX = 45;
 function realBarraCardHtml(landing){
   const activo = !!landing.barra;
   const velocidad = landing.barraVelocidad || 14;
-  // Segundos que tarda la barra en dar una vuelta completa — menos segundos =
-  // se mueve más rápido. Se muestran como 3 botones simples (no un control de
-  // segundos crudo) para que quede claro sin explicación técnica.
-  const opcionesVelocidad = [
-    { seg: 22, label: 'Lenta' },
-    { seg: 14, label: 'Normal' },
-    { seg: 8, label: 'Rápida' },
-  ];
+  // Antes eran 3 botones fijos (Lenta/Normal/Rápida) — a pedido de Norbey
+  // (03/09) se cambió por un slider continuo: el estudiante arrastra y ve la
+  // barra moverse en vivo mientras ajusta, en vez de saltar entre 3 valores
+  // fijos. "barraVelocidad" sigue siendo segundos base (ver realBarraHtml),
+  // solo que ahora puede ser cualquier número entero dentro del rango, no
+  // solo 8/14/22.
   const selectorVelocidad = activo ? `
-    <div style="display:flex; gap:6px; padding:8px 30px 2px 14px;">
-      ${opcionesVelocidad.map(o => `<button type="button" data-velocidad-barra="${o.seg}" title="Velocidad ${o.label.toLowerCase()}" style="flex:1; padding:6px 0; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; border:1px solid ${velocidad === o.seg ? '#7c3aed' : 'var(--line-strong)'}; background:${velocidad === o.seg ? '#7c3aed' : 'transparent'}; color:${velocidad === o.seg ? '#fff' : 'var(--paper)'};">${o.label}</button>`).join('')}
+    <div style="padding:10px 30px 6px 14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:var(--paper); opacity:0.75; margin-bottom:4px;">
+        <span>🐇 Rápida</span>
+        <span id="realBarraVelocidadLabel" style="font-weight:700; opacity:1;">${velocidad}s</span>
+        <span>Lenta 🐢</span>
+      </div>
+      <input type="range" id="realBarraVelocidadSlider" min="${REAL_BARRA_VELOCIDAD_MIN}" max="${REAL_BARRA_VELOCIDAD_MAX}" step="1" value="${velocidad}" title="Arrastrá para calibrar la velocidad — se ve en vivo en el celular" style="width:100%; accent-color:#7c3aed; cursor:pointer; display:block;">
     </div>` : '';
   return `
     <div>
@@ -5778,7 +5794,7 @@ function realVerLandingCompleta(landing){
   // derecho (Editor de elementos), no toca landing.items por sí solo.
   let mostrarInsertarBoton = false;
   overlay.innerHTML = `
-    <style>@keyframes realBtnShake{0%,100%{transform:translateX(0) rotate(0deg);}92%{transform:translateX(0) rotate(0deg);}93%{transform:translateX(-3px) rotate(-2deg);}94%{transform:translateX(3px) rotate(2deg);}95%{transform:translateX(-3px) rotate(-2deg);}96%{transform:translateX(3px) rotate(2deg);}97%{transform:translateX(-2px) rotate(-1deg);}98%,99%{transform:translateX(0) rotate(0deg);}}@keyframes realBarraScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}.realBarraTrack{animation:realBarraScroll 14s linear infinite;}.realBarraTrack.paused{animation-play-state:paused;}</style>
+    <style>@keyframes realBtnPulse{0%,70%{transform:scale(1);}80%{transform:scale(1.06);}90%,100%{transform:scale(1);}}@keyframes realBarraScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}.realBarraTrack{animation:realBarraScroll 14s linear infinite;}.realBarraTrack.paused{animation-play-state:paused;}</style>
     <div style="display:flex; max-width:1140px; width:100%; max-height:90vh; background:var(--ink-2); border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;" onclick="event.stopPropagation();">
       <div style="width:230px; flex-shrink:0; padding:20px; display:flex; flex-direction:column; gap:10px; border-right:1px solid var(--line-strong); overflow-y:auto;">
         <div style="font-size:11px; color:var(--text-dimmer); text-transform:uppercase; letter-spacing:0.04em;">Landing completa</div>
@@ -6002,12 +6018,29 @@ function realVerLandingCompleta(landing){
       landing.barra = !landing.barra;
       actualizarBarra();
     };
-    overlay.querySelectorAll('[data-velocidad-barra]').forEach(velBtn=>{
-      velBtn.onclick = ()=>{
-        landing.barraVelocidad = parseInt(velBtn.getAttribute('data-velocidad-barra'), 10);
+    const sliderVelocidad = overlay.querySelector('#realBarraVelocidadSlider');
+    if(sliderVelocidad){
+      const label = overlay.querySelector('#realBarraVelocidadLabel');
+      // "input" dispara en cada pixel que se arrastra — acá SOLO se actualiza
+      // el preview en vivo (número + la barra real del celular, tocando
+      // directo animation-duration), sin llamar actualizarBarra() todavía:
+      // eso evitaría rearmar todo el HTML (con el corte feo de la animación)
+      // y mandar un PATCH al backend en cada pixel arrastrado.
+      sliderVelocidad.addEventListener('input', ()=>{
+        const seg = parseInt(sliderVelocidad.value, 10);
+        if(label) label.textContent = seg + 's';
+        const track = overlay.querySelector('#realPhoneBarra .realBarraTrack');
+        if(track) track.style.animationDuration = (seg * REAL_BARRA_REPETICIONES) + 's';
+      });
+      // "change" dispara una sola vez, al soltar el mouse (o al terminar de
+      // ajustar con el teclado) — ahí sí se guarda de verdad: en landing.*,
+      // en el backend, y queda listo para viajar a Shopify en el próximo
+      // "Volver a publicar".
+      sliderVelocidad.addEventListener('change', ()=>{
+        landing.barraVelocidad = parseInt(sliderVelocidad.value, 10);
         actualizarBarra();
-      };
-    });
+      });
+    }
   }
   wireBarraCard();
 
