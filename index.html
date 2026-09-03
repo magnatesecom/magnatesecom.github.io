@@ -5688,7 +5688,6 @@ function realBarraHtml(landing){
   const texto = realEscHtml(landing.barraTexto || 'CALIDAD GARANTIZADA  •  ENVÍO RÁPIDO  •  PAGO SEGURO');
   const color = landing.barraColor || '#f0b90b';
   const colorTexto = landing.barraColorTexto || realColorTextoContraste(color);
-  const duracion = landing.barraVelocidad || 14;
   // El truco de loop sin salto (ver comentario de arriba) solo se ve bien si
   // el contenido de UNA sola copia ya es más ancho que la pantalla — si el
   // estudiante escribe un texto corto, esa copia queda angosta y se ve un
@@ -5700,6 +5699,14 @@ function realBarraHtml(landing){
   // lectura (aria-hidden), para no confundir al estudiante con texto
   // duplicado que pueda tocar por error.
   const REPETICIONES = 12;
+  // "barraVelocidad" guarda el valor BASE elegido (8/14/22, ver botones
+  // Lenta/Normal/Rápida) — pero como cada copia ahora tiene 12x más texto que
+  // antes (ver arriba), hay que recorrer 12x más distancia en la misma
+  // cantidad de segundos si no se ajusta la duración: eso hacía que la barra
+  // se viera mucho más rápida de lo esperado (bug reportado el 03/09). Se
+  // multiplica la duración por REPETICIONES para mantener la misma velocidad
+  // en píxeles por segundo sea cual sea la cantidad de repeticiones.
+  const duracion = (landing.barraVelocidad || 14) * REPETICIONES;
   const spanFijo = `<span aria-hidden="true" style="display:inline-block; padding-right:36px; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>`;
   const spanEditable = `<span contenteditable="true" spellcheck="false" data-texto-barra title="Tocá para escribir otro texto" style="display:inline-block; padding-right:36px; outline:none; cursor:text; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.04em;">${texto}</span>`;
   const copiaEditable = spanEditable + spanFijo.repeat(REPETICIONES - 1);
