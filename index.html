@@ -5939,18 +5939,43 @@ function aplicarColorBotonGlobal(landing, color){
 // el color con el circulito de la esquina (input type="color" nativo). Cada
 // botón guarda su propio texto y color por separado — si nunca se tocan, en
 // Shopify sale amarillo con "COMPRAR AHORA" por defecto.
+// Pedido 10/09: el ícono va en una placa oscura redondeada, separada del
+// texto, calcando el espíritu del botón real de Releasit que mandó Norbey de
+// referencia ("Pídela y Paga en Casa" con su ícono en una placa oscura). Se
+// probó primero con la placa SUPERPUESTA en la esquina del botón
+// (position:absolute con top negativo, igual que en la foto), pero Norbey
+// reportó el 10/09 que en la vista previa del taller la placa aparecía
+// descolgada, montada sobre la sección anterior — y probando en un navegador
+// real se confirmó que en shopify.service.ts (donde el botón no tiene el
+// mismo colchón de padding que acá en el taller) la placa iba a quedar
+// todavía peor, mordiendo la imagen de arriba. Por eso se pasó primero a una
+// placa oscura EN LÍNEA, pegada al texto — pero Norbey mandó de nuevo la
+// captura del botón real de Releasit el 08/09 aclarando que el ícono real NO
+// lleva ningún fondo relleno (va directo en negro, del mismo color que el
+// texto) y va pegado a la izquierda del botón, no junto al texto en el
+// centro. Por eso ahora: el ícono va SIN fondo (toma el mismo color que
+// colorTexto, igual que el texto) y fijo a la izquierda con
+// "position:absolute; top:50%; transform:translateY(-50%)" — pero sin
+// ningún offset negativo (a diferencia del primer intento), así que siempre
+// queda contenido adentro del botón, nunca se sale ni tapa nada de arriba.
+// El texto sigue centrado solo (el ícono, al estar con position:absolute,
+// no lo empuja). El circulito de elegir color se dejó en la esquina inferior
+// izquierda (donde ya estaba) — es solo una herramienta de edición del
+// taller, no aparece en la landing real.
 function realBotonComprarHtml(item, landing){
   const texto = realEscHtml(item.texto || 'COMPRAR AHORA');
   const color = item.color || '#f0b90b';
   const colorTexto = item.colorTexto || realColorTextoContraste(color);
   const anim = animacionCssBoton(animacionEfectiva(landing));
-  const icono = ICONOS_BOTON[iconoBotonEfectivo(landing)];
+  const iconoKey = iconoBotonEfectivo(landing);
+  const icono = ICONOS_BOTON[iconoKey];
+  const badge = (iconoKey !== 'ninguno' && icono) ? `<span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; color:${colorTexto}; pointer-events:none;">${icono}</span>` : '';
   return `<div style="padding:10px 14px; background:#f5f1e4; position:relative;">
-    <div style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:12px 16px; background:${color}; color:${colorTexto}; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em; ${anim}">
-      ${icono ? `<span style="flex-shrink:0; pointer-events:none; display:flex;">${icono}</span>` : ''}
+    <div style="position:relative; display:flex; align-items:center; justify-content:center; width:100%; padding:12px 16px; background:${color}; color:${colorTexto}; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em; ${anim}">
+      ${badge}
       <span contenteditable="true" spellcheck="false" data-texto-boton="${item.id}" title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
     </div>
-    <input type="color" data-color-boton="${item.id}" value="${color}" title="Elegir color del botón" style="position:absolute; left:6px; top:6px; width:22px; height:22px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
+    <input type="color" data-color-boton="${item.id}" value="${color}" title="Elegir color del botón" style="position:absolute; left:6px; bottom:2px; width:22px; height:22px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
     <button data-remove-item="${item.id}" title="Quitar este botón" style="position:absolute; top:2px; right:8px; background:none; border:none; color:#c96a6a; font-size:15px; cursor:pointer; line-height:1; z-index:2;">×</button>
   </div>`;
 }
@@ -6006,12 +6031,18 @@ function realBotonFlotanteHtml(landing){
   const color = landing.botonFlotanteColor || '#f0b90b';
   const colorTexto = landing.botonFlotanteColorTexto || realColorTextoContraste(color);
   const anim = animacionCssBoton(animacionEfectiva(landing));
-  const icono = ICONOS_BOTON[iconoBotonEfectivo(landing)];
+  const iconoKey = iconoBotonEfectivo(landing);
+  const icono = ICONOS_BOTON[iconoKey];
+  // Mismo cambio que realBotonComprarHtml de arriba — ícono sin fondo
+  // relleno, fijo a la izquierda del botón con position:absolute pero sin
+  // ningún offset negativo (siempre contenido adentro). El circulito de
+  // color se dejó abajo (bottom:-10px), como ya estaba.
+  const badge = (iconoKey !== 'ninguno' && icono) ? `<span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; color:${colorTexto}; pointer-events:none;">${icono}</span>` : '';
   return `<div style="position:sticky; bottom:34px; padding:8px 10px 0; background:transparent; z-index:4;">
-    <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; gap:8px; background:${color}; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22); ${anim}">
-      ${icono ? `<span style="flex-shrink:0; pointer-events:none; display:flex;">${icono}</span>` : ''}
+    <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; background:${color}; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22); ${anim}">
+      ${badge}
       <span contenteditable="true" spellcheck="false" data-texto-flotante title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
-      <input type="color" data-color-flotante value="${color}" title="Elegir color del botón flotante" style="position:absolute; left:8px; top:-10px; width:20px; height:20px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
+      <input type="color" data-color-flotante value="${color}" title="Elegir color del botón flotante" style="position:absolute; left:8px; bottom:-10px; width:20px; height:20px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
       <button type="button" data-quitar-flotante title="Quitar botón flotante" style="position:absolute; top:-9px; right:-9px; width:20px; height:20px; border-radius:50%; background:#e05252; border:2px solid #1c2733; color:#fff; font-size:11px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; z-index:3;">×</button>
     </div>
   </div>`;
