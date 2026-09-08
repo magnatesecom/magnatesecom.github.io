@@ -327,6 +327,28 @@
   .tm-batch-btn.active{ background:var(--coral); border-color:var(--coral); color:#1c1408; }
   .tm-new-badge{ background:var(--coral); color:#1c1408; font-size:9px; padding:1px 6px; border-radius:8px; }
 
+  /* ---------- Pestaña "Plantillas guardadas" ---------- */
+  .tm-saved-empty{ padding:40px 20px; text-align:center; color:#8a8270; font-size:13px; line-height:1.6; }
+  .tm-saved-list{ display:flex; flex-direction:column; gap:10px; }
+  .tm-saved-item{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    background:#f9f6ec; border:1px solid #ece6d6; border-radius:10px; padding:12px 16px;
+  }
+  .tm-saved-info{ min-width:0; }
+  .tm-saved-name{ font-weight:700; font-size:13.5px; color:#1c1810; margin-bottom:3px; }
+  .tm-saved-meta{ font-size:11.5px; color:#8a8270; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tm-saved-actions{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .tm-saved-use-btn{
+    background:var(--coral); color:#1c1408; border:none; border-radius:7px; padding:8px 14px;
+    font-size:12px; font-weight:700; cursor:pointer; font-family:'IBM Plex Sans';
+  }
+  .tm-saved-use-btn:hover{ filter:brightness(1.06); }
+  .tm-saved-del-btn{
+    background:none; border:1px solid #e4dfd0; color:#8a8270; border-radius:7px; width:32px; height:32px;
+    cursor:pointer; font-size:13px; flex-shrink:0;
+  }
+  .tm-saved-del-btn:hover{ border-color:#e05252; color:#b23b3b; }
+
   /* ---------- Main ---------- */
   .main{
     flex:1; min-width:0; display:flex; flex-direction:column;
@@ -733,6 +755,7 @@
     width:24px; height:24px; border-radius:50%; border:1px solid rgba(0,0,0,0.08); cursor:pointer; padding:0;
   }
   .swatch-grid button.selected{ box-shadow:0 0 0 2px #fff, 0 0 0 3.5px var(--coral); }
+  .paleta-producto-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:#8a8371; margin:0 0 6px 0; }
   .hue-slider{
     -webkit-appearance:none; appearance:none; width:100%; height:12px; border-radius:6px; margin:10px 0 12px 0; cursor:pointer;
     background:linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
@@ -1452,36 +1475,6 @@
           </div>
 
           <div class="fmt-row">
-            <div class="field color-field-wrap" style="margin-bottom:0;">
-              <label>Color Predominante del fondo (Opcional)</label>
-              <div class="swatch-select" id="colorTrigger"><span class="dot" id="colorDot"></span> <span id="colorLabel">Seleccionar color</span></div>
-
-              <div class="color-popover" id="colorPopover">
-                <div class="swatch-grid" id="swatchGrid"></div>
-                <input type="range" class="hue-slider" id="hueSlider" min="0" max="360" value="45">
-                <div class="hex-row">
-                  <div class="hex-preview"><div class="hex-preview-fill" id="hexPreviewFill" style="background:#d4a935;"></div></div>
-                  <input type="text" class="hex-input" id="hexInput" value="#d4a935">
-                  <button class="eyedrop-btn" id="eyedropBtn" title="Gotero: elegir color de la pantalla">💧</button>
-                </div>
-              </div>
-            </div>
-            <div class="field custom-dd-wrap" style="margin-bottom:0;">
-              <label>Tamaño de Salida</label>
-              <button type="button" class="custom-dd-trigger" id="sizeTrigger">Tamaño Original</button>
-              <div class="custom-dd-menu" id="sizeMenu">
-                <input type="text" class="custom-dd-search" placeholder="Buscar..." autocomplete="off">
-                <div class="custom-dd-item" data-size="Tamaño Original"><span class="chk">✓</span>Tamaño Original</div>
-                <div class="custom-dd-item" data-size="Facebook/LinkedIn (1200×628)"><span class="chk"></span>Facebook/LinkedIn (1200×628)</div>
-                <div class="custom-dd-item" data-size="Instagram Cuadrado (1080×1080)"><span class="chk"></span>Instagram Cuadrado (1080×1080)</div>
-                <div class="custom-dd-item" data-size="Instagram Stories (1080×1920)"><span class="chk"></span>Instagram Stories (1080×1920)</div>
-                <div class="custom-dd-item" data-size="YouTube/HD (1920×1080)"><span class="chk"></span>YouTube/HD (1920×1080)</div>
-                <div class="custom-dd-item" data-size="Banner Medium (300×250)"><span class="chk"></span>Banner Medium (300×250)</div>
-                <div class="custom-dd-item" data-size="Leaderboard (728×90)"><span class="chk"></span>Leaderboard (728×90)</div>
-                <div class="custom-dd-item" data-size="Skyscraper (160×600)"><span class="chk"></span>Skyscraper (160×600)</div>
-                <div class="custom-dd-item" data-size="Personalizado"><span class="chk"></span>Personalizado</div>
-              </div>
-            </div>
             <div class="field custom-dd-wrap" style="margin-bottom:0;">
               <label>🌐 Idioma de Salida</label>
               <button type="button" class="custom-dd-trigger" id="langTrigger">Español</button>
@@ -1707,14 +1700,12 @@
               <div class="fb-help">Esta configuración solo aplica para la generación de la sección logística.</div>
             </div>
 
-            <div class="field-block">
-              <div class="fb-head">
-                <span class="fb-label">💬 Instrucciones adicionales</span>
-                <span class="fb-counter" id="counterInstrucciones">0 / 700</span>
-              </div>
-              <div class="fb-mic"><textarea id="fInstrucciones" maxlength="700" placeholder="Agrega cualquier instrucción adicional para la generación del banner. Ejemplo: un precio, un personaje, un color específico, el nombre del producto..."></textarea><span class="mic-ico">🎙</span></div>
-              <div class="fb-help">En una generación masiva de secciones de landing, estas instrucciones adicionales se aplican a todas las secciones que se generen.</div>
-            </div>
+            <!-- Pedido 07/09: se quitó el campo "Instrucciones adicionales" — ahora cualquier
+                 instrucción puntual (un precio, un personaje, un color, el nombre exacto del
+                 producto, un prompt propio, etc.) se escribe directamente en "Detalles del
+                 producto" (fProducto) de arriba; ver detallesProducto en construirPrompt()
+                 (image-edit.service.ts), que ya se manda completo a la IA como instrucción a
+                 seguir, no solo como texto de referencia. Un solo cuadro de texto en vez de dos. -->
           </div>
         </div>
 
@@ -1846,10 +1837,30 @@
     <div class="tm-footer">
       <span class="tm-hint" id="tmHint">Haz clic en un template para seleccionarlo</span>
       <div class="tm-footer-right">
+        <button class="tm-batch-btn" id="tmGuardarBtn" type="button">💾 Guardar Plantillas</button>
         <button class="tm-batch-btn" id="tmBatchBtn" type="button">▤ Generación Masiva</button>
         <button class="modal-btn modal-btn-cancel" id="tmCancel">Cancelar</button>
         <button class="modal-btn modal-btn-create" id="tmUse">✓ Usar Plantilla(s)</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: nombrar y guardar la combinación actual de plantillas (pestaña
+     "💾 Plantillas guardadas" del modal de arriba) -->
+<div class="modal-overlay" id="guardarPlantillasModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 class="modal-title">💾 Guardar Plantillas</h3>
+      <button class="modal-close" id="guardarPlantillasCloseBtn">✕</button>
+    </div>
+    <p class="modal-sub">Guarda la combinación de plantillas que elegiste en las distintas secciones, con un nombre, para volver a usarla más adelante en cualquier producto sin tener que elegir todo de nuevo.</p>
+    <label class="modal-label">Nombre de esta combinación</label>
+    <input type="text" class="modal-input" id="guardarPlantillasNombre" placeholder="Ej: Plantilla Testeos, Plantilla Salud...">
+    <div id="guardarPlantillasError" style="display:none; background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.35); color:#b23b3b; border-radius:8px; padding:9px 12px; font-size:12px; line-height:1.4; margin-top:10px;"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" id="guardarPlantillasCancelBtn">Cancelar</button>
+      <button class="modal-btn modal-btn-create" id="guardarPlantillasConfirmBtn">Guardar</button>
     </div>
   </div>
 </div>
@@ -3254,117 +3265,109 @@ wireImageSlots();
 // ---------------- Tile "Seleccionar Plantilla" -> abre el modal de plantillas ----------------
 document.getElementById('plantillaTile').onclick = openTemplateModal;
 
-// ---------------- SELECTOR DE COLOR ----------------
-const PRESET_COLORS = [
-  '#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#0ea5e9','#6366f1',
-  '#a855f7','#ec4899','#f472b6','#ffffff','#9ca3af','#4b5563','#111827','#0c1a2c'
-];
-
-function hexToHsl(hex){
-  let r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
-  const max=Math.max(r,g,b), min=Math.min(r,g,b);
-  let h,s,l=(max+min)/2;
-  if(max===min){ h=s=0; }
-  else{
-    const d=max-min;
-    s = l>0.5 ? d/(2-max-min) : d/(max+min);
-    switch(max){
-      case r: h=(g-b)/d+(g<b?6:0); break;
-      case g: h=(b-r)/d+2; break;
-      default: h=(r-g)/d+4;
-    }
-    h/=6;
-  }
-  return {h:h*360, s:s*100, l:l*100};
-}
-function hslToHex(h,s,l){
-  s/=100; l/=100;
-  const k = n => (n + h/30) % 12;
-  const a = s * Math.min(l, 1-l);
-  const f = n => l - a*Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
-  const toHex = x => Math.round(255*x).toString(16).padStart(2,'0');
-  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
-}
-
-function buildSwatchGrid(){
-  const grid = document.getElementById('swatchGrid');
-  grid.innerHTML = '';
-  PRESET_COLORS.forEach(c=>{
-    const b = document.createElement('button');
-    b.style.background = c;
-    if(c === '#ffffff' || c === '#9ca3af') b.style.border = '1px solid #ddd';
-    b.onclick = ()=> setColor(c);
-    b.dataset.color = c;
-    grid.appendChild(b);
+// ---------------- Color de fondo: se calcula solo, ya no se elige a mano ----------------
+// Pedido 07/09: antes había un selector manual de "Color Predominante del fondo" (paleta
+// genérica + hex + gotero). Primero se agregó una paleta sugerida a partir de la foto del
+// producto, pero después Norbey pidió sacar el campo por completo de la pantalla — ahora el
+// color se calcula solo, analizando los píxeles de la(s) foto(s) del producto, justo antes de
+// generar cada sección (ver obtenerColorAutomaticoProducto, usada en generateBtn.onclick).
+// Ya no hay ningún control visual para esto: es 100% automático.
+function extraerColoresDeImagen(src){
+  return new Promise((resolve)=>{
+    try{
+      const img = new Image();
+      if(!src.startsWith('data:')) img.crossOrigin = 'anonymous'; // fotos ya subidas al backend (URL remota, no data URI local)
+      img.onload = ()=>{
+        try{
+          const tam = 80; // achicar la imagen acelera mucho el conteo de píxeles sin perder precisión de color
+          const canvas = document.createElement('canvas');
+          canvas.width = tam; canvas.height = tam;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, tam, tam);
+          const { data } = ctx.getImageData(0, 0, tam, tam);
+          const paso = 24;
+          // ignora blanco/negro casi puro y grises: casi siempre es el fondo de estudio de la
+          // foto, no un color real del producto
+          function clasificar(r,g,b){
+            const max = Math.max(r,g,b), min = Math.min(r,g,b);
+            const esCasiBlanco = min > 232;
+            const esCasiNegro = max < 22;
+            const esGrisPuro = (max - min) < 12 && min > 40 && max < 232;
+            if(esCasiBlanco || esCasiNegro || esGrisPuro) return null;
+            const rr = Math.round(r/paso)*paso, gg = Math.round(g/paso)*paso, bb = Math.round(b/paso)*paso;
+            return `${rr},${gg},${bb}`;
+          }
+          // Pedido 09/09: Norbey reportó que en fotos "de la vida real" (no de estudio con fondo
+          // blanco) — ej. el producto sobre un piso de madera contra una pared color arena — ese
+          // color de pared/piso pasa el filtro de blanco/negro/gris de arriba, y como suele ocupar
+          // más área de la foto que el producto en sí, terminaba ganando como "color dominante" en
+          // vez del color real del producto (rojo/negro en ese caso, pero salió arena/durazno).
+          // Se corrige detectando primero qué color(es) dominan el BORDE de la foto (el marco de
+          // los píxeles más externos — ahí casi siempre está el fondo, y casi nunca el producto,
+          // que normalmente está centrado) y excluyéndolos del conteo general antes de elegir el
+          // color más frecuente.
+          const margen = Math.round(tam * 0.08); // borde de ~8% del tamaño de la imagen
+          const cubosBorde = new Map();
+          const cubosTotal = new Map();
+          for(let y=0; y<tam; y++){
+            for(let x=0; x<tam; x++){
+              const i = (y*tam+x)*4;
+              const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
+              if(a < 200) continue; // ignora píxeles transparentes (fotos con fondo ya recortado)
+              const clave = clasificar(r,g,b);
+              if(!clave) continue;
+              cubosTotal.set(clave, (cubosTotal.get(clave)||0) + 1);
+              const enBorde = x < margen || x >= tam-margen || y < margen || y >= tam-margen;
+              if(enBorde) cubosBorde.set(clave, (cubosBorde.get(clave)||0) + 1);
+            }
+          }
+          // Solo se considera "fondo" un color que ocupa una porción grande del borde (más de un
+          // cuarto) — así no se descarta nada en fotos donde el producto llega hasta el marco de
+          // la imagen y comparte el borde con otros colores en partes más o menos iguales.
+          const totalBorde = [...cubosBorde.values()].reduce((s,v)=> s+v, 0);
+          const fondoDetectado = new Set(
+            [...cubosBorde.entries()]
+              .filter(([,cant])=> totalBorde > 0 && cant / totalBorde > 0.25)
+              .map(([clave])=> clave),
+          );
+          let candidatos = [...cubosTotal.entries()].filter(([clave])=> !fondoDetectado.has(clave));
+          // Resguardo: si excluir el fondo detectado no deja ningún color candidato (ej. la foto
+          // tiene un solo color de punta a punta, producto incluido), no se filtra nada — mejor
+          // devolver el color real de la foto que no devolver ninguno.
+          if(candidatos.length === 0) candidatos = [...cubosTotal.entries()];
+          resolve(candidatos.sort((a,b)=> b[1]-a[1]).slice(0,8).map(([clave])=>{
+            const [r,g,b] = clave.split(',').map(Number);
+            const toHex = x => Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+          }));
+        }catch(err){ resolve([]); } // canvas "contaminado" (foto remota sin CORS habilitado) u otro error: no rompe nada, simplemente no se ofrece esta paleta para esa foto
+      };
+      img.onerror = ()=> resolve([]);
+      img.src = src;
+    }catch(err){ resolve([]); }
   });
 }
-buildSwatchGrid();
 
-function setColor(hex, fromSlider){
-  document.getElementById('colorDot').style.background = hex;
-  document.getElementById('colorLabel').textContent = hex.toUpperCase();
-  document.getElementById('hexPreviewFill').style.background = hex;
-  document.getElementById('hexInput').value = hex;
-  document.querySelectorAll('#swatchGrid button').forEach(b=> b.classList.toggle('selected', b.dataset.color === hex));
-  if(!fromSlider){
-    try{ document.getElementById('hueSlider').value = hexToHsl(hex).h; }catch(e){}
-  }
+// Calcula el color dominante real combinando todas las fotos del producto que haya
+// cargadas en ese momento (Imagen 1/2/3) — se llama justo antes de generar (ver
+// generateBtn.onclick), nunca hace falta guardarlo ni cachearlo. Si por lo que sea no
+// se puede sacar ningún color (fotos en blanco/negro/gris puro, o error de canvas con
+// una foto remota sin CORS), devuelve undefined y la generación sigue igual, sin pistas
+// de color — el mismo comportamiento de "Opcional" que tenía el selector manual viejo.
+async function obtenerColorAutomaticoProducto(){
+  const imgs = ['imgSlot1','imgSlot2','imgSlot3']
+    .map(id=> document.getElementById(id)?.querySelector('img'))
+    .filter(Boolean);
+  if(imgs.length === 0) return undefined;
+  const listas = await Promise.all(imgs.map(img=> extraerColoresDeImagen(img.src)));
+  const cubos = new Map();
+  listas.forEach(lista=> lista.forEach((hex, i)=>{
+    // los colores más frecuentes DENTRO de cada foto pesan un poco más al combinar varias fotos
+    cubos.set(hex, (cubos.get(hex)||0) + (lista.length - i));
+  }));
+  const top = [...cubos.entries()].sort((a,b)=> b[1]-a[1])[0];
+  return top ? top[0] : undefined;
 }
-
-document.getElementById('colorTrigger').onclick = (e)=>{
-  e.stopPropagation();
-  document.getElementById('colorPopover').classList.toggle('open');
-};
-document.addEventListener('click', (e)=>{
-  const pop = document.getElementById('colorPopover');
-  if(pop.classList.contains('open') && !pop.contains(e.target) && e.target.id !== 'colorTrigger'){
-    pop.classList.remove('open');
-  }
-});
-document.getElementById('hueSlider').addEventListener('input', (e)=>{
-  const hex = hslToHex(Number(e.target.value), 80, 55);
-  setColor(hex, true);
-});
-document.getElementById('hexInput').addEventListener('input', (e)=>{
-  let v = e.target.value.trim();
-  if(/^#?[0-9a-fA-F]{6}$/.test(v)){
-    if(!v.startsWith('#')) v = '#'+v;
-    setColor(v);
-  }
-});
-document.getElementById('eyedropBtn').onclick = async ()=>{
-  if('EyeDropper' in window){
-    try{
-      const eyeDropper = new EyeDropper();
-      const result = await eyeDropper.open();
-      setColor(result.sRGBHex);
-    }catch(err){ /* usuario canceló */ }
-  } else {
-    alert('Tu navegador no soporta el gotero de color (EyeDropper). Funciona en Chrome/Edge recientes.');
-  }
-};
-
-// ---------------- Dropdown personalizado: Tamaño de Salida ----------------
-const sizeTrigger = document.getElementById('sizeTrigger');
-const sizeMenu = document.getElementById('sizeMenu');
-sizeTrigger.onclick = (e)=>{
-  e.stopPropagation();
-  sizeMenu.classList.toggle('open');
-};
-sizeMenu.querySelectorAll('.custom-dd-item').forEach(item=>{
-  item.onclick = ()=>{
-    const val = item.dataset.size;
-    sizeTrigger.textContent = val;
-    sizeMenu.querySelectorAll('.custom-dd-item .chk').forEach(c=> c.textContent = '');
-    item.querySelector('.chk').textContent = '✓';
-    sizeMenu.classList.remove('open');
-  };
-});
-document.addEventListener('click', (e)=>{
-  if(sizeMenu.classList.contains('open') && !sizeMenu.contains(e.target) && e.target !== sizeTrigger){
-    sizeMenu.classList.remove('open');
-  }
-});
 
 // ---------------- Dropdown personalizado: Idioma de Salida ----------------
 const langTrigger = document.getElementById('langTrigger');
@@ -3612,7 +3615,6 @@ const COUNTED_FIELDS = [
   {input:'fResultado', counter:'counterResultado', max:700},
   {input:'fSolucion', counter:'counterSolucion', max:700},
   {input:'fMecanismo', counter:'counterMecanismo', max:700},
-  {input:'fInstrucciones', counter:'counterInstrucciones', max:700},
 ];
 function updateCounter(cfg){
   const el = document.getElementById(cfg.input);
@@ -3642,10 +3644,17 @@ const aiFillBtn2 = document.getElementById('aiFillBtn2');
 // Paso 1 de "Completar con IA": le pide al servidor 3 ángulos de venta
 // distintos, calculados a partir de los detalles del producto.
 async function callGenerarAngulosBackend(ficha, productName){
+  // Pedido 07/09: si el cliente va a vender en otro país/idioma (ver "🌐 Idioma de Salida"),
+  // el copy que arma la IA debe salir redactado en ESE idioma, no siempre en español.
+  const idioma = document.getElementById('langTrigger')?.textContent || 'Español';
+  // Pedido 09/09: "🌍 País donde vas a vender" — adapta el tono/modismos del copy generado
+  // para ese país (ver TONO_POR_PAIS en el backend). Si el usuario nunca tocó el selector,
+  // queda el texto placeholder ("Selecciona el país"); se manda igual, el backend ya lo filtra.
+  const pais = document.getElementById('paisVenderTrigger')?.textContent || '';
   const response = await apiFetch(BACKEND_URL + '/ia/texto/generar-angulos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombreProducto: productName, detallesProducto: ficha }),
+    body: JSON.stringify({ nombreProducto: productName, detallesProducto: ficha, idioma, pais }),
   });
 
   if(!response.ok){
@@ -3662,10 +3671,12 @@ async function callGenerarAngulosBackend(ficha, productName){
 // Paso 2: con el ángulo ya elegido por el usuario (anguloElegido), le pide
 // al servidor que redacte el resto de los campos en base a ese ángulo.
 async function callClaudeBackend(ficha, productName, anguloElegido){
+  const idioma = document.getElementById('langTrigger')?.textContent || 'Español';
+  const pais = document.getElementById('paisVenderTrigger')?.textContent || '';
   const response = await apiFetch(BACKEND_URL + '/ia/texto/generar-copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombreProducto: productName, detallesProducto: ficha, anguloElegido }),
+    body: JSON.stringify({ nombreProducto: productName, detallesProducto: ficha, anguloElegido, idioma, pais }),
   });
 
   if(!response.ok){
@@ -4287,13 +4298,17 @@ function ensureSelectionSets(){
   return st;
 }
 
+// Clave especial para la pestaña "Plantillas guardadas" — nunca puede chocar con una clave
+// real de SECTION_TYPES (esas son nombres de sección tipo 'hero', 'oferta', etc.).
+const TM_TAB_GUARDADAS = '__guardadas__';
+
 function renderTmTabs(){
   const st = getState(currentProduct);
   const tabsWrap = document.getElementById('tmTabs');
   tabsWrap.innerHTML = SECTION_TYPES.map(sec=>{
     const tieneSeleccion = st.templateSelections[sec.key] && st.templateSelections[sec.key].size > 0;
     return `<button class="tm-tab ${sec.key===tmActiveTab?'active':''}" data-sec="${sec.key}">${sec.label}${tieneSeleccion ? '<span class="tm-tab-dot"></span>' : ''}</button>`;
-  }).join('');
+  }).join('') + `<button class="tm-tab ${tmActiveTab===TM_TAB_GUARDADAS?'active':''}" data-sec="${TM_TAB_GUARDADAS}">💾 Plantillas guardadas</button>`;
   tabsWrap.querySelectorAll('.tm-tab').forEach(btn=>{
     btn.onclick = ()=>{
       tmActiveTab = btn.dataset.sec;
@@ -4306,6 +4321,10 @@ function renderTmTabs(){
 function renderTmGrid(){
   const st = ensureSelectionSets();
   const grid = document.getElementById('tmGrid');
+  if(tmActiveTab === TM_TAB_GUARDADAS){
+    renderTmGridGuardadas(grid);
+    return;
+  }
   const sec = SECTION_TYPES.find(s=> s.key === tmActiveTab);
   const isHero = sec.key === 'hero';
   const isOferta = sec.key === 'oferta';
@@ -4432,6 +4451,7 @@ function renderTmGrid(){
       } else if(tmLastPicked && tmLastPicked.sectionKey === sec.key && tmLastPicked.id === id){
         tmLastPicked = null; // se deseleccionó la que estaba marcada como "la última"
       }
+      autoActivarMasivaSiCorresponde(st); // activa sola "Generación Masiva" si ya hay 2+ secciones con selección
       renderTmGrid();
       updateTmHint();
       renderTmTabs(); // refleja al instante el punto verde de "esta sección tiene selección" en la pestaña
@@ -4445,6 +4465,20 @@ function updateTmHint(){
     ? 'Haz clic en un template para seleccionarlo'
     : `${n} plantilla${n===1?'':'s'} seleccionada${n===1?'':'s'}`;
   document.getElementById('tmUse').disabled = n === 0;
+}
+
+// Pedido 07/09: antes, si el cliente elegía plantillas en más de una sección (ej. una en "hero"
+// y otra en "oferta"), "Generar Sección" bloqueaba todo con un aviso pidiendo que activara
+// manualmente "▤ Generación Masiva" — un paso extra e innecesario, porque si ya seleccionó
+// plantillas en varias secciones, la intención de generarlas todas juntas ya está clara. Ahora
+// se activa sola en cuanto detecta selección en 2+ secciones, tanto al hacer clic (feedback
+// inmediato en el botón) como justo antes de generar (por si acaso, sin bloquear nunca).
+function autoActivarMasivaSiCorresponde(st){
+  const seccionesConSeleccion = SECTION_TYPES.filter(sec=> st.templateSelections[sec.key] && st.templateSelections[sec.key].size > 0).length;
+  if(seccionesConSeleccion > 1 && !st.masivaActiva){
+    st.masivaActiva = true;
+    updateTmBatchBtn();
+  }
 }
 
 function cloneSelections(st){
@@ -4501,6 +4535,152 @@ document.getElementById('tmUse').onclick = ()=>{
 document.getElementById('templateModal').addEventListener('click', (e)=>{
   if(e.target.id === 'templateModal') document.getElementById('tmCancel').click();
 });
+
+// ---------------- Pestaña "💾 Plantillas guardadas" ----------------
+// Pedido 07/09: guardar con un nombre la combinación de plantillas elegida (una por sección)
+// para volver a aplicarla completa con un clic en cualquier producto futuro, en vez de tener
+// que volver a elegir cada plantilla de cada sección cada vez. Se guarda por CUENTA (no por
+// producto) en el backend — ver plantillas-guardadas.controller.ts/.service.ts.
+let plantillasGuardadasCache = null; // null = todavía no se cargó desde el backend en esta sesión
+
+async function cargarPlantillasGuardadas(forzar){
+  if(plantillasGuardadasCache && !forzar) return plantillasGuardadasCache;
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/plantillas-guardadas');
+    if(!resp.ok) return plantillasGuardadasCache || [];
+    plantillasGuardadasCache = await resp.json();
+  }catch(err){
+    console.warn('No se pudieron cargar las plantillas guardadas:', err);
+  }
+  return plantillasGuardadasCache || [];
+}
+
+// Nombre corto y legible de cada sección, para el subtítulo de cada tarjeta guardada
+// (ej. "Hero section, Oferta, Beneficios") — reusa las mismas etiquetas de SECTION_TYPES.
+function etiquetaSeccion(key){
+  const sec = SECTION_TYPES.find(s=> s.key === key);
+  return sec ? sec.label : key;
+}
+
+async function renderTmGridGuardadas(grid){
+  document.getElementById('tmCountBadge').textContent = (plantillasGuardadasCache || []).length;
+  grid.innerHTML = `<div class="tm-saved-empty">Cargando…</div>`;
+  const lista = await cargarPlantillasGuardadas();
+  if(tmActiveTab !== TM_TAB_GUARDADAS) return; // el usuario ya cambió de pestaña mientras cargaba
+  document.getElementById('tmCountBadge').textContent = lista.length;
+
+  if(lista.length === 0){
+    grid.innerHTML = `<div class="tm-saved-empty">Todavía no guardaste ninguna combinación de plantillas.<br>Elegí una plantilla por sección en las pestañas de arriba y usá "💾 Guardar Plantillas" abajo para guardarla con un nombre.</div>`;
+    return;
+  }
+
+  grid.innerHTML = `<div class="tm-saved-list">` + lista.map(p=>{
+    const secciones = Object.keys(p.selecciones || {}).map(etiquetaSeccion).join(', ');
+    return `
+      <div class="tm-saved-item" data-id="${p.id}">
+        <div class="tm-saved-info">
+          <div class="tm-saved-name">${realEscHtml(p.nombre)}</div>
+          <div class="tm-saved-meta">${realEscHtml(secciones || 'Sin secciones')}</div>
+        </div>
+        <div class="tm-saved-actions">
+          <button type="button" class="tm-saved-use-btn" data-usar="${p.id}">Usar</button>
+          <button type="button" class="tm-saved-del-btn" data-borrar="${p.id}" title="Eliminar">🗑</button>
+        </div>
+      </div>`;
+  }).join('') + `</div>`;
+
+  grid.querySelectorAll('[data-usar]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const p = lista.find(x=> String(x.id) === btn.dataset.usar);
+      if(p) aplicarPlantillaGuardada(p);
+    };
+  });
+  grid.querySelectorAll('[data-borrar]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm('¿Eliminar esta combinación guardada? Esto no borra ninguna landing ya generada, solo el atajo guardado.')) return;
+      try{
+        await apiFetch(BACKEND_URL + '/plantillas-guardadas/' + btn.dataset.borrar, { method:'DELETE' });
+      }catch(err){ console.warn('No se pudo eliminar la plantilla guardada:', err); }
+      await cargarPlantillasGuardadas(true);
+      renderTmGridGuardadas(grid);
+    };
+  });
+}
+
+// Aplica una combinación guardada: reemplaza la selección de CADA sección que esa combinación
+// incluya (las demás secciones quedan tal cual estaban) y deja el modal abierto en la misma
+// pestaña para que el usuario pueda revisar/ajustar antes de tocar "Usar Plantilla(s)".
+function aplicarPlantillaGuardada(p){
+  const st = ensureSelectionSets();
+  Object.entries(p.selecciones || {}).forEach(([sectionKey, templateId])=>{
+    if(!st.templateSelections[sectionKey]) st.templateSelections[sectionKey] = new Set();
+    st.templateSelections[sectionKey].clear();
+    st.templateSelections[sectionKey].add(templateId);
+  });
+  autoActivarMasivaSiCorresponde(st); // si la combinación cubre 2+ secciones, activa sola "Generación Masiva"
+  updateTmHint();
+  renderTmTabs();
+  mostrarAvisoCampo(`Se aplicó la combinación "<b>${realEscHtml(p.nombre)}</b>". Revisá la selección y tocá "✓ Usar Plantilla(s)" para confirmar.`, null, []);
+}
+
+// ---------------- Modal para nombrar y guardar la combinación actual ----------------
+document.getElementById('tmGuardarBtn').onclick = ()=>{
+  const st = getState(currentProduct);
+  const seleccionActual = {};
+  SECTION_TYPES.forEach(sec=>{
+    const set = st.templateSelections[sec.key];
+    if(set && set.size > 0) seleccionActual[sec.key] = [...set][0];
+  });
+  if(Object.keys(seleccionActual).length === 0){
+    mostrarAvisoCampo('Elegí al menos una plantilla en alguna sección antes de guardar una combinación.', document.getElementById('tmTabs'), []);
+    return;
+  }
+  document.getElementById('guardarPlantillasNombre').value = '';
+  document.getElementById('guardarPlantillasError').style.display = 'none';
+  document.getElementById('guardarPlantillasModal').classList.add('active');
+  document.getElementById('guardarPlantillasModal')._seleccionActual = seleccionActual;
+  setTimeout(()=> document.getElementById('guardarPlantillasNombre').focus(), 50);
+};
+function cerrarGuardarPlantillasModal(){
+  document.getElementById('guardarPlantillasModal').classList.remove('active');
+}
+document.getElementById('guardarPlantillasCloseBtn').onclick = cerrarGuardarPlantillasModal;
+document.getElementById('guardarPlantillasCancelBtn').onclick = cerrarGuardarPlantillasModal;
+document.getElementById('guardarPlantillasModal').addEventListener('click', (e)=>{
+  if(e.target.id === 'guardarPlantillasModal') cerrarGuardarPlantillasModal();
+});
+document.getElementById('guardarPlantillasConfirmBtn').onclick = async ()=>{
+  const modal = document.getElementById('guardarPlantillasModal');
+  const nombre = document.getElementById('guardarPlantillasNombre').value.trim();
+  const errEl = document.getElementById('guardarPlantillasError');
+  if(!nombre){
+    errEl.textContent = 'Ponele un nombre a esta combinación antes de guardarla.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('guardarPlantillasConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/plantillas-guardadas', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ nombre, selecciones: modal._seleccionActual || {} }),
+    });
+    if(!resp.ok){
+      const j = await resp.json().catch(()=> ({}));
+      throw new Error(j.message || 'No se pudo guardar.');
+    }
+    await cargarPlantillasGuardadas(true);
+    cerrarGuardarPlantillasModal();
+  }catch(err){
+    errEl.textContent = err.message || 'No se pudo guardar la combinación.';
+    errEl.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+  }
+};
 
 function renderSectionBlocks(){
   // ya no se pinta inline: solo aseguramos que existan los sets y refrescamos el contador
@@ -4912,7 +5092,7 @@ function realFicha(){
     resultado: val('fResultado'),
     solucion: val('fSolucion'),
     mecanismo: val('fMecanismo'),
-    instrucciones: val('fInstrucciones'),
+    idioma: txt('langTrigger'),
     personajes: {
       nacionalidad: document.getElementById('fPersonajeNacionalidad')?.value,
       sexo: document.getElementById('fPersonajeSexo')?.value,
@@ -4967,6 +5147,22 @@ function mostrarAvisoCampo(mensajeHtml, blockEl, camposVacios){
 }
 
 document.getElementById('generateBtn').onclick = async ()=>{
+  const btnGenerar = document.getElementById('generateBtn');
+  // Pedido 09/09: Norbey reportó que al elegir UNA sola plantilla a veces se generaban 2 piezas
+  // (distintas entre sí, no idénticas) para esa misma sección. Causa raíz: el botón recién se
+  // deshabilitaba más abajo, DESPUÉS de varias validaciones y de calcular el color automático
+  // del producto (obtenerColorAutomaticoProducto() es async y tarda un instante) — en esa
+  // ventana sin ningún indicio visual de "ya se está procesando", un segundo clic (doble clic
+  // sin querer, o clic de nuevo por impaciencia) disparaba una SEGUNDA ejecución completa de
+  // este mismo handler en paralelo, con la misma plantilla todavía seleccionada (recién se
+  // limpia la selección al final) → 2 generaciones reales de la IA para la misma plantilla,
+  // cada una con su propio resultado (por eso salían parecidas pero no iguales) y cada una
+  // guardada por separado en el historial. Fix: deshabilitar el botón ACÁ, como lo primerísimo
+  // que hace el handler, antes de cualquier validación o espera — así un segundo clic mientras
+  // el primero todavía se está procesando no hace nada.
+  if(btnGenerar.disabled) return;
+  btnGenerar.disabled = true;
+
   const st = getState(currentProduct);
   const toGenerate = [];
   SECTION_TYPES.forEach(sec=>{
@@ -4975,22 +5171,18 @@ document.getElementById('generateBtn').onclick = async ()=>{
     });
   });
   if(toGenerate.length === 0){
+    btnGenerar.disabled = false;
     openTemplateModal();
     return;
   }
 
   // Generación Masiva: si hay plantillas marcadas en más de una sección (ej. el cliente
-  // anduvo mirando varias pestañas del selector) pero no activó "Generación Masiva", no se
-  // genera nada de una — se le avisa para que decida, en vez de generar todo sin que se dé cuenta.
-  const seccionesEnJuego = new Set(toGenerate.map(g=> g.sectionKey));
-  if(seccionesEnJuego.size > 1 && !st.masivaActiva){
-    mostrarAvisoCampo(
-      `Tienes plantillas seleccionadas en <b>${seccionesEnJuego.size} secciones distintas</b>. Activa "▤ Generación Masiva" en el selector de plantillas si quieres generarlas todas juntas, o deja seleccionada solo una sección para generar de a una.`,
-      document.getElementById('plantillaTile'),
-      [],
-    );
-    return;
-  }
+  // anduvo mirando varias pestañas del selector), antes esto bloqueaba todo pidiendo que el
+  // cliente activara manualmente "▤ Generación Masiva" (pedido 07/09: quitar ese paso extra).
+  // Ahora se activa sola — normalmente ya quedó activada al hacer clic en las plantillas
+  // (autoActivarMasivaSiCorresponde en el handler de selección), esto es solo un respaldo por
+  // si acaso, para que generar nunca quede bloqueado por este motivo.
+  autoActivarMasivaSiCorresponde(st);
 
   const incluyeOferta = toGenerate.some(g=> g.sectionKey === 'oferta');
   if(incluyeOferta){
@@ -5006,18 +5198,19 @@ document.getElementById('generateBtn').onclick = async ()=>{
         document.getElementById('ofertaConfigBlock'),
         camposVacios,
       );
+      btnGenerar.disabled = false;
       return;
     }
   }
 
   const productImgEl = cePickProductImage();
   if(!productImgEl){
+    btnGenerar.disabled = false;
     alert('Sube al menos una foto de producto (Imagen 1, 2 o 3) antes de generar.');
     return;
   }
   const imagenProductoUrl = productImgEl.src; // data URL base64 — GPT Image 2 la acepta directo, sin subirla a ningún lado antes
-  const colorSeleccionado = document.getElementById('colorLabel')?.textContent !== 'Seleccionar color';
-  const colorHex = colorSeleccionado ? document.getElementById('hexInput')?.value : undefined;
+  const colorHex = await obtenerColorAutomaticoProducto(); // ya no se elige a mano: se calcula solo a partir de la(s) foto(s) del producto
   const ficha = realFicha();
 
   const banner = document.getElementById('jobBanner');
@@ -5330,6 +5523,44 @@ async function realDownloadOptimizada(url, filename, btn){
   btn.disabled = false;
 }
 
+// ---------------- Zoom + paneo con el mouse (visor grande de una pieza generada) ----------------
+// Pedido 09/09: al ver una pieza en grande (visor de piezas reales de IA u openCeLightbox), un
+// clic sobre la imagen la amplía, y mover el mouse/dedo sobre ella recorre la zona ampliada según
+// hacia dónde apunte — como una lupa. Un segundo clic la vuelve a su tamaño normal. Se usa
+// "pointermove" (no "mousemove") para que también funcione con dedo en pantallas táctiles.
+function attachZoomPan(wrapper, imgEl){
+  if(!wrapper || !imgEl) return;
+  const ZOOM = 2.4;
+  let zoomed = false;
+  wrapper.style.overflow = 'hidden';
+  wrapper.style.cursor = 'zoom-in';
+  imgEl.style.transition = 'transform 0.12s ease-out';
+  imgEl.style.transformOrigin = '50% 50%';
+
+  function moverA(clientX, clientY){
+    const rect = wrapper.getBoundingClientRect();
+    const x = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100));
+    imgEl.style.transformOrigin = x + '% ' + y + '%';
+  }
+  function onMove(e){ moverA(e.clientX, e.clientY); }
+
+  wrapper.addEventListener('click', (e)=>{
+    zoomed = !zoomed;
+    if(zoomed){
+      wrapper.style.cursor = 'zoom-out';
+      moverA(e.clientX, e.clientY);
+      imgEl.style.transform = 'scale(' + ZOOM + ')';
+      wrapper.addEventListener('pointermove', onMove);
+    }else{
+      wrapper.style.cursor = 'zoom-in';
+      imgEl.style.transform = 'scale(1)';
+      imgEl.style.transformOrigin = '50% 50%';
+      wrapper.removeEventListener('pointermove', onMove);
+    }
+  });
+}
+
 function openRealLightbox(item){
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.88); z-index:9999; display:flex; align-items:center; justify-content:center; padding:30px;';
@@ -5357,7 +5588,7 @@ function openRealLightbox(item){
             <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; font-size:9px; font-weight:700; color:rgba(28,39,51,0.75); background:#f5f1e4;">
               <span>4:16</span><span>Powered by <span style="color:var(--coral);">Ecom Magnates</span></span>
             </div>
-            <img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel}">
+            <div id="realZoomWrap"><img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel}"></div>
             <div style="display:flex; align-items:center; justify-content:space-around; padding:8px 10px; background:#f5f1e4; position:sticky; bottom:0;">
               <span style="opacity:0.5; font-size:12px;">◀</span><span style="opacity:0.5; font-size:12px;">▶</span><span style="opacity:0.5; font-size:12px;">⬆</span><span style="opacity:0.5; font-size:12px;">◻</span><span style="opacity:0.5; font-size:12px;">▦</span>
             </div>
@@ -5372,6 +5603,7 @@ function openRealLightbox(item){
   overlay.querySelector('#realModalClose').onclick = ()=> overlay.remove();
   overlay.querySelector('#realBtn2k').onclick = (e)=> galleryDownload(item.image, filename + '_2K.png', e.currentTarget);
   overlay.querySelector('#realBtnOpt').onclick = (e)=> realDownloadOptimizada(item.image, filename, e.currentTarget);
+  attachZoomPan(overlay.querySelector('#realZoomWrap'), overlay.querySelector('#realZoomWrap img'));
 }
 
 // ---------------- Descarga masiva / Ensamblar landing (piezas reales de IA) ----------------
@@ -6302,7 +6534,7 @@ function renderCredits(){
 // ---------------- RENDER ALL ----------------
 function resetWorkspaceForm(){
   // Textareas de contexto y ficha técnica
-  ['fProducto','fAngulo','fProblema','fAvatar','fResultado','fSolucion','fMecanismo','fInstrucciones'].forEach(id=>{
+  ['fProducto','fAngulo','fProblema','fAvatar','fResultado','fSolucion','fMecanismo'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.value = '';
   });
@@ -6323,11 +6555,6 @@ function resetWorkspaceForm(){
   document.querySelectorAll('.price-table input').forEach(inp=>{ inp.value = ''; });
 
   // Dropdowns personalizados de vuelta a su valor por defecto
-  if(typeof sizeTrigger !== 'undefined'){
-    sizeTrigger.textContent = 'Tamaño Original';
-    sizeMenu.querySelectorAll('.custom-dd-item .chk').forEach(c=> c.textContent = '');
-    sizeMenu.querySelector('[data-size="Tamaño Original"] .chk').textContent = '✓';
-  }
   if(typeof langTrigger !== 'undefined'){
     langTrigger.textContent = 'Español';
     langMenu.querySelectorAll('.custom-dd-item .chk').forEach(c=> c.textContent = '');
@@ -6353,9 +6580,6 @@ function resetWorkspaceForm(){
     divisaMenu.querySelector('[data-divisa="Estados Unidos — USD ($)"] .chk').textContent = '✓';
     if(typeof divisaCustomInput !== 'undefined'){ divisaCustomInput.style.display = 'none'; divisaCustomInput.value = ''; }
   }
-  // Selector de color de vuelta al valor por defecto
-  if(typeof setColor === 'function'){ setColor('#d4a935'); }
-
   // Selector de plantillas: se resetea vía ensureSelectionSets() al re-renderizar
 
   // Selects nativos restantes (personajes, logística) de vuelta a su primera opción
@@ -6383,7 +6607,7 @@ function capturarFichaActual(){
     resultado: val('fResultado'),
     solucion: val('fSolucion'),
     mecanismo: val('fMecanismo'),
-    instrucciones: val('fInstrucciones'),
+    idioma: txt('langTrigger'),
     precio1Venta: val('fPrecio1Venta'), precio1Comparacion: val('fPrecio1Comparacion'),
     precio2Venta: val('fPrecio2Venta'), precio2Comparacion: val('fPrecio2Comparacion'),
     precio3Venta: val('fPrecio3Venta'), precio3Comparacion: val('fPrecio3Comparacion'),
@@ -6408,7 +6632,6 @@ function restaurarFichaGuardada(datos){
   setVal('fResultado', datos.resultado);
   setVal('fSolucion', datos.solucion);
   setVal('fMecanismo', datos.mecanismo);
-  setVal('fInstrucciones', datos.instrucciones);
   setVal('fPrecio1Venta', datos.precio1Venta); setVal('fPrecio1Comparacion', datos.precio1Comparacion);
   setVal('fPrecio2Venta', datos.precio2Venta); setVal('fPrecio2Comparacion', datos.precio2Comparacion);
   setVal('fPrecio3Venta', datos.precio3Venta); setVal('fPrecio3Comparacion', datos.precio3Comparacion);
@@ -6420,6 +6643,12 @@ function restaurarFichaGuardada(datos){
 
   if(datos.paisVender && typeof paisVenderTrigger !== 'undefined'){
     paisVenderTrigger.textContent = datos.paisVender;
+  }
+  if(datos.idioma && typeof langTrigger !== 'undefined'){
+    langTrigger.textContent = datos.idioma;
+    langMenu.querySelectorAll('.custom-dd-item .chk').forEach(c=> c.textContent = '');
+    const chkIdioma = langMenu.querySelector('[data-lang="' + CSS.escape(datos.idioma) + '"] .chk');
+    if(chkIdioma) chkIdioma.textContent = '✓';
   }
   if(datos.divisa && typeof divisaTrigger !== 'undefined'){
     divisaTrigger.textContent = datos.divisa;
@@ -7072,9 +7301,8 @@ function ceHexToHue(hex){
 }
 
 function ceGetUserChosenHue(){
-  const label = document.getElementById('colorLabel');
-  const txt = label ? label.textContent.trim() : '';
-  if(/^#[0-9a-fA-F]{6}$/.test(txt)) return ceHexToHue(txt);
+  // El color ya no lo elige la persona a mano (ver obtenerColorAutomaticoProducto) — esta
+  // vista previa es solo una simulación local sin costo, así que se queda con un tono fijo.
   return 220;
 }
 
@@ -7146,7 +7374,7 @@ function ceOpenLightbox(item){
             <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; font-size:9px; font-weight:700; color:rgba(28,39,51,0.75); background:#f5f1e4;">
               <span>4:16</span><span>Powered by <span style="color:var(--coral);">Ecom Magnates</span></span>
             </div>
-            <img src="${item.dataUrl}" style="width:100%; display:block;" alt="${item.sec.label}">
+            <div id="ceZoomWrap"><img src="${item.dataUrl}" style="width:100%; display:block;" alt="${item.sec.label}"></div>
             <div style="display:flex; align-items:center; justify-content:space-around; padding:8px 10px; background:#f5f1e4; position:sticky; bottom:0;">
               <span style="opacity:0.5; font-size:12px;">◀</span><span style="opacity:0.5; font-size:12px;">▶</span><span style="opacity:0.5; font-size:12px;">⬆</span><span style="opacity:0.5; font-size:12px;">◻</span><span style="opacity:0.5; font-size:12px;">▦</span>
             </div>
@@ -7163,6 +7391,7 @@ function ceOpenLightbox(item){
   overlay.querySelector('#ceModalClose').onclick = ()=> overlay.remove();
   overlay.querySelector('#ceBtn2k').onclick = (e)=> ceDownload2K(item.canvas, filename, e.currentTarget);
   overlay.querySelector('#ceBtnOpt').onclick = (e)=> ceDownloadOptimizada(item.canvas, filename, e.currentTarget);
+  attachZoomPan(overlay.querySelector('#ceZoomWrap'), overlay.querySelector('#ceZoomWrap img'));
 }
 
 function ceRenderResults(){
@@ -7220,7 +7449,7 @@ function ceRenderResults(){
         </div>
       `;}).join('')}
     </div>
-  `).join('') + `<div class="generate-note" style="margin-top:4px;">color: ${document.getElementById('colorLabel')?.textContent || '—'} · sin usar créditos.</div>`;
+  `).join('') + `<div class="generate-note" style="margin-top:4px;">sin usar créditos.</div>`;
 
   wrap.querySelectorAll('[data-ceview]').forEach(btn=>{
     btn.onclick = ()=>{
@@ -7583,7 +7812,7 @@ function convertirFichaBackendAEstado(f){
     resultado: f.resultado || '',
     solucion: f.solucion || '',
     mecanismo: f.mecanismo || '',
-    instrucciones: f.instrucciones || '',
+    idioma: f.idioma || '', // piezas viejas (antes del 07/09) no traen idioma — restaurarFichaGuardada() ya maneja el caso vacío y deja "Español" por defecto
     precio1Venta: f.oferta?.precio1Venta || '',
     precio1Comparacion: f.oferta?.precio1Comparacion || '',
     precio2Venta: f.oferta?.precio2Venta || '',
