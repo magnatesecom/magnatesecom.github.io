@@ -2517,17 +2517,25 @@ function renderHome(){
 // clic afuera a propósito (para que un clic accidental no cancele ni confirme
 // solo) — solo los dos botones deciden: "Cancelar" cierra sin hacer nada,
 // el botón de acción cierra Y corre onConfirm().
-function mostrarConfirmacion({ titulo, mensaje, textoConfirmar = 'Sí, eliminar', textoCancelar = 'Cancelar', onConfirm }){
+// "icono"/"colorAccent" agregados 10/09 — hasta entonces este aviso solo se
+// usaba para acciones destructivas (eliminar/desconectar), de ahí el 🗑 rojo
+// fijo. Ahora también se usa para preguntas comunes y corrientes (como
+// "aplicar este color a todos los botones") que no tienen nada de
+// destructivo, así que quedan con sus propios valores por defecto — pero
+// nunca cambian el aspecto de los avisos ya existentes (todos siguen
+// llamando a esto sin pasar estos dos, así que caen en los mismos 🗑/rojo de
+// siempre).
+function mostrarConfirmacion({ titulo, mensaje, textoConfirmar = 'Sí, eliminar', textoCancelar = 'Cancelar', icono = '🗑', colorAccent = '#e05252', onConfirm }){
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.72); z-index:10000; display:flex; align-items:center; justify-content:center; padding:20px;';
   overlay.innerHTML = `
     <div style="max-width:380px; width:100%; background:var(--ink-2); border:1px solid var(--line-strong); border-radius:14px; padding:28px 26px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-      <div style="width:52px; height:52px; border-radius:50%; background:rgba(224,82,82,0.14); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:22px;">🗑</div>
+      <div style="width:52px; height:52px; border-radius:50%; background:${colorAccent}24; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:22px;">${icono}</div>
       <div style="font-family:'Fraunces'; font-weight:600; font-size:17px; color:var(--paper); margin-bottom:10px;">${titulo}</div>
       <div style="font-size:13px; color:var(--text-dim); line-height:1.55; margin-bottom:24px;">${mensaje}</div>
       <div style="display:flex; gap:10px;">
         <button id="avisoCancelBtn" style="flex:1; padding:11px; border-radius:8px; border:1px solid var(--line-strong); background:transparent; color:var(--paper); font-weight:600; font-size:13px; cursor:pointer;">${textoCancelar}</button>
-        <button id="avisoOkBtn" style="flex:1; padding:11px; border-radius:8px; border:none; background:#e05252; color:#fff; font-weight:700; font-size:13px; cursor:pointer;">${textoConfirmar}</button>
+        <button id="avisoOkBtn" style="flex:1; padding:11px; border-radius:8px; border:none; background:${colorAccent}; color:#fff; font-weight:700; font-size:13px; cursor:pointer;">${textoConfirmar}</button>
       </div>
     </div>
   `;
@@ -5677,7 +5685,7 @@ async function apiGuardarLanding(nombreProducto, landing){
     const resp = await apiFetch(BACKEND_URL + '/landings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante, movimiento: !!landing.movimiento, barra: !!landing.barra, barraTexto: landing.barraTexto || undefined, barraColor: landing.barraColor || undefined, barraColorTexto: landing.barraColorTexto || undefined, barraVelocidad: landing.barraVelocidad || undefined }),
+      body: JSON.stringify({ nombreProducto, num: landing.num, items: landing.items, botonFlotante: !!landing.botonFlotante, botonFlotanteTexto: landing.botonFlotanteTexto || undefined, botonFlotanteColor: landing.botonFlotanteColor || undefined, botonFlotanteColorTexto: landing.botonFlotanteColorTexto || undefined, movimiento: !!landing.movimiento, animacionBoton: landing.animacionBoton || undefined, iconoBoton: landing.iconoBoton || undefined, barra: !!landing.barra, barraTexto: landing.barraTexto || undefined, barraColor: landing.barraColor || undefined, barraColorTexto: landing.barraColorTexto || undefined, barraVelocidad: landing.barraVelocidad || undefined }),
     });
     if(!resp.ok) return null;
     return await resp.json();
@@ -5826,22 +5834,120 @@ function realColorTextoContraste(hex){
   return luminancia > 0.6 ? '#111' : '#fff';
 }
 
+// Set de íconos monocromos para el botón "COMPRAR AHORA" — pedido 09/09
+// ("sin color, solo así" con capturas de referencia), en reemplazo del
+// camioncito emoji fijo de antes. Mismo trazo (estilo Feather Icons,
+// stroke="currentColor" — hereda el color de texto que el estudiante ya
+// eligió para ESE botón) y las MISMAS 8 opciones que arma el backend en
+// shopify.service.ts (ver icono_boton_svg ahí) — si se agrega/cambia algún
+// ícono, hacerlo en los dos lados para que la vista previa del taller
+// coincida con lo que después sale en la landing real. "ninguno" deja el
+// botón sin ícono, solo texto.
+const ICONOS_BOTON = {
+  ninguno: '',
+  carrito: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>',
+  bolsa: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>',
+  // Agregado 10/09 junto con "bolso" — pedido de Norbey de que salgan
+  // exactamente los mismos íconos de su captura de referencia (antes se
+  // habían dejado afuera por no tener el trazo exacto confirmado).
+  canasta: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><path d="M9 4L7 10"></path><path d="M15 4l2 6"></path><path d="M5 10h14l-1.2 8.4a2 2 0 0 1-1.98 1.6H8.18a2 2 0 0 1-1.98-1.6L5 10z"></path><path d="M12 10v6"></path><path d="M9 13h6"></path></svg>',
+  tarjeta: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>',
+  etiqueta: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
+  camion: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>',
+  flecha: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>',
+  caja: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
+  bolso: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><path d="M4 9h16l-1.5 10.5a2 2 0 0 1-2 1.5H7.5a2 2 0 0 1-2-1.5L4 9z"></path><path d="M8 9V7a4 4 0 0 1 8 0v2"></path><circle cx="12" cy="14" r="1"></circle></svg>',
+};
+// Etiquetas cortas para el desplegable de íconos (ver realIconoBotonPickerInnerHtml).
+const ICONOS_BOTON_LABEL = { ninguno: 'Ninguno', carrito: 'Carrito', bolsa: 'Bolsa', canasta: 'Canasta', tarjeta: 'Tarjeta', etiqueta: 'Etiqueta', camion: 'Camión', flecha: 'Flecha', caja: 'Caja', bolso: 'Bolso' };
+
+// Ícono efectivo de una landing: si nunca se eligió ninguno (landings viejas,
+// o una recién creada), cae en "camion" — mismo valor por defecto que usa el
+// backend (normalizarIconoBoton en shopify.service.ts) para que no cambie de
+// golpe el ícono de una landing ya publicada la primera vez que se re-guarda.
+function iconoBotonEfectivo(landing){
+  const val = landing.iconoBoton;
+  return (val && ICONOS_BOTON.hasOwnProperty(val)) ? val : 'camion';
+}
+
+// Animaciones válidas del selector "Animación de botón" (pedido 09/09, con
+// captura de referencia de otra app: Ninguna/Sacudida/Rebote/Pulsación).
+const ANIMACIONES_BOTON = [
+  { valor: 'ninguna', label: 'Ninguna' },
+  { valor: 'sacudida', label: 'Sacudida' },
+  { valor: 'rebote', label: 'Rebote' },
+  { valor: 'pulsacion', label: 'Pulsación' },
+];
+// Animación efectiva de una landing: si "animacionBoton" nunca se guardó
+// (landing armada antes de este cambio) cae de respaldo al viejo booleano
+// "movimiento" (true → "pulsacion", el único que existía antes), igual que
+// hace el Liquid en el backend — así ninguna landing vieja pierde su pulso
+// sin querer al abrirla de nuevo en el taller.
+function animacionEfectiva(landing){
+  if(landing.animacionBoton && ANIMACIONES_BOTON.some(a=> a.valor === landing.animacionBoton)) return landing.animacionBoton;
+  return landing.movimiento ? 'pulsacion' : 'ninguna';
+}
+// Traduce una animación efectiva al nombre del @keyframes de vista previa
+// (definidos en el <style> de realVerLandingCompleta) — '' si es "ninguna".
+function animacionCssBoton(animacion){
+  if(animacion === 'sacudida') return 'animation:realBtnShake 3s ease-in-out infinite;';
+  if(animacion === 'rebote') return 'animation:realBtnBounce 3s ease-in-out infinite;';
+  if(animacion === 'pulsacion') return 'animation:realBtnPulse 3s ease-in-out infinite;';
+  return '';
+}
+
+// Cuántos botones "COMPRAR AHORA" tiene la landing en total — los
+// intercalados (items de tipo boton_comprar) más el flotante si está
+// agregado. Se usa para decidir si tiene sentido ofrecer "aplicar a todos"
+// (pedido 10/09): con un solo botón en toda la landing no hay "los demás" a
+// los que aplicarles nada.
+function landingCantidadBotones(landing){
+  const nIntercalados = Array.isArray(landing.items) ? landing.items.filter(it => it.tipo === 'boton_comprar').length : 0;
+  return nIntercalados + (landing.botonFlotante ? 1 : 0);
+}
+
+// Pone el mismo texto en TODOS los botones "COMPRAR AHORA" de la landing —
+// los intercalados y el flotante — pedido 10/09 ("agregar ahí mismo para
+// editar el texto y que se aplique en todos los botones"). Usado tanto por
+// el campo "Texto del botón" de la tarjeta "Agregar Botón entre Secciones"
+// (siempre aplica a todos) como, si el estudiante confirma, después de tocar
+// el texto de un botón puntual en el celular.
+function aplicarTextoBotonGlobal(landing, texto){
+  const limpio = String(texto || '').trim();
+  if(Array.isArray(landing.items)) landing.items.forEach(it => { if(it.tipo === 'boton_comprar') it.texto = limpio; });
+  landing.botonFlotanteTexto = limpio;
+}
+
+// Pone el mismo color (y su color de texto con contraste recalculado) en
+// TODOS los botones "COMPRAR AHORA" de la landing — pedido 10/09 ("que
+// cuando elija un color salga algo para aplicar ese mismo color a los demás
+// botones"). Se usa después de que el estudiante confirma el aviso que
+// aparece al elegir un color en cualquier botón puntual (ver wireBotonFlotanteCard
+// y el listener de data-color-boton más abajo).
+function aplicarColorBotonGlobal(landing, color){
+  const colorTexto = realColorTextoContraste(color);
+  if(Array.isArray(landing.items)) landing.items.forEach(it => { if(it.tipo === 'boton_comprar'){ it.color = color; it.colorTexto = colorTexto; } });
+  landing.botonFlotanteColor = color;
+  landing.botonFlotanteColorTexto = colorTexto;
+}
+
 // Botón "COMPRAR AHORA" ya insertado en la secuencia — mismo estilo (píldora
-// + camioncito) que el que se va a dibujar en la landing real, para que el
+// + ícono elegido) que el que se va a dibujar en la landing real, para que el
 // estudiante vea acá lo mismo que va a quedar publicado. El texto es
 // editable tocándolo directo ahí mismo (contenteditable — se guarda solo al
 // sacarle el foco, ver el "focusout" delegado en realVerLandingCompleta), y
 // el color con el circulito de la esquina (input type="color" nativo). Cada
 // botón guarda su propio texto y color por separado — si nunca se tocan, en
 // Shopify sale amarillo con "COMPRAR AHORA" por defecto.
-function realBotonComprarHtml(item, movimiento){
+function realBotonComprarHtml(item, landing){
   const texto = realEscHtml(item.texto || 'COMPRAR AHORA');
   const color = item.color || '#f0b90b';
   const colorTexto = item.colorTexto || realColorTextoContraste(color);
-  const anim = movimiento ? 'animation:realBtnPulse 3s ease-in-out infinite;' : '';
+  const anim = animacionCssBoton(animacionEfectiva(landing));
+  const icono = ICONOS_BOTON[iconoBotonEfectivo(landing)];
   return `<div style="padding:10px 14px; background:#f5f1e4; position:relative;">
     <div style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:12px 16px; background:${color}; color:${colorTexto}; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em; ${anim}">
-      <span style="flex-shrink:0; pointer-events:none;">🚚</span>
+      ${icono ? `<span style="flex-shrink:0; pointer-events:none; display:flex;">${icono}</span>` : ''}
       <span contenteditable="true" spellcheck="false" data-texto-boton="${item.id}" title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
     </div>
     <input type="color" data-color-boton="${item.id}" value="${color}" title="Elegir color del botón" style="position:absolute; left:6px; top:6px; width:22px; height:22px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
@@ -5857,15 +5963,23 @@ function realSecuenciaEditableHtml(landing, mostrarGaps){
   let html = realInsertGapHtml(0, mostrarGaps);
   landing.items.forEach((item, i)=>{
     html += item.tipo === 'boton_comprar'
-      ? realBotonComprarHtml(item, landing.movimiento)
+      ? realBotonComprarHtml(item, landing)
       : `<img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel||''}">`;
     html += realInsertGapHtml(i+1, mostrarGaps);
   });
   return html;
 }
 
-function realInsertarBotonComprar(landing, idx){
-  landing.items.splice(idx, 0, { tipo: 'boton_comprar', id: 'btn-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6) });
+// Pedido 10/09: un botón NUEVO tiene que arrancar con el texto que ya esté
+// puesto en el campo "Texto del botón" del Editor de Elementos (a mano
+// derecha) — no siempre con "COMPRAR AHORA" a secas — así el estudiante no
+// tiene que volver a escribirlo botón por botón. "textoInicial" es opcional:
+// si no se manda (o llega vacío), el botón simplemente no trae "texto" propio
+// y cae en el default de siempre al dibujarse (ver realBotonComprarHtml).
+function realInsertarBotonComprar(landing, idx, textoInicial){
+  const item = { tipo: 'boton_comprar', id: 'btn-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6) };
+  if(textoInicial) item.texto = textoInicial;
+  landing.items.splice(idx, 0, item);
   renderRealAssembledLandings();
   apiActualizarLanding(landing, { items: landing.items });
 }
@@ -5891,10 +6005,11 @@ function realBotonFlotanteHtml(landing){
   const texto = realEscHtml(landing.botonFlotanteTexto || 'COMPRAR AHORA');
   const color = landing.botonFlotanteColor || '#f0b90b';
   const colorTexto = landing.botonFlotanteColorTexto || realColorTextoContraste(color);
-  const anim = landing.movimiento ? 'animation:realBtnPulse 3s ease-in-out infinite;' : '';
+  const anim = animacionCssBoton(animacionEfectiva(landing));
+  const icono = ICONOS_BOTON[iconoBotonEfectivo(landing)];
   return `<div style="position:sticky; bottom:34px; padding:8px 10px 0; background:transparent; z-index:4;">
     <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; gap:8px; background:${color}; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22); ${anim}">
-      <span style="flex-shrink:0; pointer-events:none;">🚚</span>
+      ${icono ? `<span style="flex-shrink:0; pointer-events:none; display:flex;">${icono}</span>` : ''}
       <span contenteditable="true" spellcheck="false" data-texto-flotante title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
       <input type="color" data-color-flotante value="${color}" title="Elegir color del botón flotante" style="position:absolute; left:8px; top:-10px; width:20px; height:20px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
       <button type="button" data-quitar-flotante title="Quitar botón flotante" style="position:absolute; top:-9px; right:-9px; width:20px; height:20px; border-radius:50%; background:#e05252; border:2px solid #1c2733; color:#fff; font-size:11px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; z-index:3;">×</button>
@@ -5923,26 +6038,118 @@ function realBotonFlotanteCardHtml(landing){
   `;
 }
 
-// Tarjeta clicable "Agregar Movimiento" (mismo estilo/patrón que la de
-// "Botón Flotante" de arriba): prende/apaga, para TODA la landing a la vez,
-// la animación de "shake" (se mueve solo cada 4 segundos, como el botón de
-// Releasit) en TODOS los botones "COMPRAR AHORA" — tanto los intercalados
-// entre secciones como el flotante, si lo tiene agregado. Es un interruptor
-// global por landing, no botón por botón (igual que hacen otras apps de
-// Shopify con este mismo tipo de animación). Se guarda en landing.movimiento
-// y viaja a Shopify como el metafield ecom_magnates.landing_movimiento — ver
-// seccionLandingLiquid en el backend.
-function realMovimientoCardHtml(landing){
-  const activo = !!landing.movimiento;
+// "Texto del botón", "Animación de botón" e "Icono de botón": pedido 10/09 —
+// que se vean "adentro" de la misma tarjeta de "Agregar Botón entre
+// Secciones" (no como tarjetas sueltas aparte), visibles solo mientras esa
+// tarjeta está activa (mostrando = true, ver realInsertarBotonCardHtml más
+// abajo). Por eso estas funciones devuelven solo el CONTENIDO interno (sin
+// tarjeta ni borde propio): las arma realInsertarBotonCardHtml() más abajo,
+// dentro de su mismo cuadro, debajo del botón "Agregar Botón entre
+// Secciones" / "Ocultar Puntos de Inserción".
+//
+// Campo de texto para TODA la landing a la vez: escribir acá y sacarle el
+// foco pone ese mismo texto en TODOS los botones "COMPRAR AHORA" (los
+// intercalados y el flotante) — pedido 10/09. Si un botón puntual ya tenía
+// otro texto, tocarlo directo en el celular lo sigue permitiendo cambiar
+// aparte. Arranca con el texto del primer botón que ya exista (o vacío, con
+// el placeholder de "COMPRAR AHORA" por defecto).
+// Texto "global" actual de la landing: el de su primer botón intercalado que
+// ya tenga uno propio, o si no el del flotante — o vacío si ninguno tiene
+// todavía. Se usa para precargar el campo "Texto del botón" (de abajo) y,
+// desde wireBotonFlotanteCard, como texto de partida al agregar el botón
+// flotante (pedido 10/09: un botón nuevo arranca con el mismo texto que ya
+// tienen los demás, no siempre con "COMPRAR AHORA" a secas).
+function textoBotonGlobalActual(landing){
+  const primero = Array.isArray(landing.items) ? landing.items.find(it => it.tipo === 'boton_comprar' && it.texto) : null;
+  return (primero && primero.texto) || landing.botonFlotanteTexto || '';
+}
+
+function realTextoBotonInnerHtml(landing){
+  const actual = textoBotonGlobalActual(landing);
   return `
-    <button type="button" id="realBtnMovimientoCard" title="${activo ? 'Quitar movimiento' : 'Agregar movimiento'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
-      <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${activo ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${activo ? '⏸' : '💫'}</span>
-      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${activo ? 'Quitar Movimiento' : 'Agregar Movimiento'}</span>
-      <span class="ce-info-wrap" onclick="event.stopPropagation();">
-        <span class="ce-info-icon">?</span>
-        <span class="ce-info-tooltip">Hace que TODOS los botones "COMPRAR AHORA" de esta landing (los intercalados y el flotante) se muevan solos cada tanto para llamar la atención, igual que otras apps de Shopify.</span>
-      </span>
-    </button>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">Texto del botón</span>
+        <span class="ce-info-wrap" onclick="event.stopPropagation();">
+          <span class="ce-info-icon">?</span>
+          <span class="ce-info-tooltip">Escribí acá y sacale el foco para poner ese mismo texto en TODOS los botones "COMPRAR AHORA" de esta landing (los intercalados y el flotante) de una sola vez.</span>
+        </span>
+      </div>
+      <input type="text" id="realInputTextoBotonGlobal" value="${realEscHtml(actual)}" placeholder="COMPRAR AHORA" maxlength="40" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line-strong); background:var(--ink-3); color:var(--paper); font-size:12.5px;">
+    </div>
+  `;
+}
+
+// Selector <select> normal, para TODA la landing a la vez (sigue siendo un
+// ajuste global por landing, no botón por botón — igual que hacen otras apps
+// de Shopify con este mismo tipo de animación). Se guarda en
+// landing.animacionBoton y viaja a Shopify como el metafield
+// ecom_magnates.landing_animacion_boton — ver seccionLandingLiquid en el
+// backend. animacionEfectiva() resuelve el valor a mostrar acá mismo si la
+// landing es vieja y solo tiene el booleano "movimiento" de antes.
+function realAnimacionSelectInnerHtml(landing){
+  const actual = animacionEfectiva(landing);
+  const opciones = ANIMACIONES_BOTON.map(a => `<option value="${a.valor}" ${a.valor === actual ? 'selected' : ''}>${a.label}</option>`).join('');
+  return `
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">Animación de botón</span>
+        <span class="ce-info-wrap" onclick="event.stopPropagation();">
+          <span class="ce-info-icon">?</span>
+          <span class="ce-info-tooltip">Hace que TODOS los botones "COMPRAR AHORA" de esta landing (los intercalados y el flotante) se muevan solos cada tanto para llamar la atención, igual que otras apps de Shopify.</span>
+        </span>
+      </div>
+      <select id="realSelectAnimacionBoton" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line-strong); background:var(--ink-3); color:var(--paper); font-size:12.5px; cursor:pointer;">${opciones}</select>
+    </div>
+  `;
+}
+
+// Grid de íconos monocromos (pedido 09/09 — "sin color, solo así" con
+// captura de referencia): reemplaza el camión fijo. El ícono elegido se
+// resalta con un borde violeta (mismo color que el resto de tarjetas activas
+// de este panel). Se guarda en landing.iconoBoton y viaja a Shopify como el
+// metafield ecom_magnates.landing_icono_boton — ver seccionLandingLiquid en
+// el backend. Ver comentario de realAnimacionSelectInnerHtml de arriba sobre
+// por qué esto es solo el contenido interno, sin tarjeta propia.
+// Pedido 10/09: "Icono de botón" pasa de ser un grid siempre abierto a un
+// desplegable (botón que muestra el ícono elegido + una flechita, y al
+// tocarlo despliega el panel con todas las opciones) — calcado del
+// desplegable de la captura de referencia que mandó Norbey. El panel
+// (#realIconoBotonDropdown) arranca oculto (atributo "hidden") y
+// wireIconoBotonPicker() lo abre/cierra; el "click fuera cierra" lo maneja
+// un listener en capture puesto una sola vez sobre el overlay (ver más abajo
+// en realVerLandingCompleta), así no hace falta reenganchar nada acá.
+//
+// OJO 10/09: al principio el panel se armó con position:absolute (flotando
+// ENCIMA del resto de tarjetas) — pero el panel derecho del Editor de
+// Elementos tiene overflow-y:auto para poder scrollear, y por una regla de
+// CSS cuando un contenedor tiene overflow-y distinto de "visible" el
+// navegador fuerza también overflow-x a "auto" (no se puede tener un eje en
+// "visible" y el otro no) — así que cualquier cosa que se saliera del ancho
+// del panel quedaba CORTADA en vez de flotar encima, que es justo lo que se
+// vio en la captura de Norbey. Fix: el panel ya no flota (nada de
+// position:absolute) — es un bloque normal que empuja hacia abajo el resto
+// de tarjetas mientras está abierto, y las columnas del grid son "1fr" (se
+// achican solas para entrar siempre en el ancho disponible), así nunca más
+// se puede cortar sea cual sea el ancho del panel.
+function realIconoBotonPickerInnerHtml(landing){
+  const actual = iconoBotonEfectivo(landing);
+  const opciones = Object.keys(ICONOS_BOTON).map(key => {
+    const activo = key === actual;
+    return `<button type="button" data-icono-boton="${key}" title="${ICONOS_BOTON_LABEL[key]}" style="display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1; min-width:0; border-radius:8px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-3)'}; color:var(--paper);">${key === 'ninguno' ? '<span style="font-size:14px; line-height:1; opacity:0.6;">∅</span>' : ICONOS_BOTON[key]}</button>`;
+  }).join('');
+  return `
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">Icono de botón</span>
+      <button type="button" id="realIconoBotonTrigger" style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line-strong); background:var(--ink-3); color:var(--paper); cursor:pointer;">
+        <span style="display:flex; align-items:center; gap:8px;">
+          <span style="display:flex; align-items:center; justify-content:center; width:18px; height:18px;">${actual === 'ninguno' ? '<span style="font-size:13px; opacity:0.6;">∅</span>' : ICONOS_BOTON[actual]}</span>
+          <span style="font-size:12.5px;">${ICONOS_BOTON_LABEL[actual]}</span>
+        </span>
+        <span style="font-size:10px; opacity:0.7;">▾</span>
+      </button>
+      <div id="realIconoBotonDropdown" hidden style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; padding:10px; border-radius:10px; border:1px solid var(--line-strong); background:var(--ink-2);">${opciones}</div>
+    </div>
   `;
 }
 
@@ -6045,16 +6252,35 @@ function realBarraCardHtml(landing){
 // de botón "COMPRAR AHORA" (item.tipo === 'boton_comprar') — igual que antes,
 // eso viaja a Shopify dentro de la secuencia y se dibuja ahí como un botón
 // real (ver enviarLandingAShopify y seccionLandingLiquid en el backend).
-function realInsertarBotonCardHtml(mostrando){
+// Pedido 10/09: "Animación de botón" e "Icono de botón" ya no son tarjetas
+// sueltas — viven DENTRO de esta misma tarjeta ("en el mismo cuadro"),
+// debajo del botón "Agregar Botón entre Secciones" / "Ocultar Puntos de
+// Inserción", separadas por una lineita — y solo se muestran cuando esta
+// tarjeta está ACTIVA (mostrando = true, o sea que ya tocaste "Agregar Botón
+// entre Secciones" y quedó en "Ocultar Puntos de Inserción"). Corrección
+// 10/09: al principio se mostraban si la landing ya tenía algún botón
+// agregado (intercalado o flotante) sin importar esta tarjeta — pero eso
+// hacía que aparecieran igual con la tarjeta cerrada/inactiva, que es
+// justamente lo que no se quería. Ahora quedan atadas al mismo estado
+// "abierto"/"cerrado" de la tarjeta, así se ve de una que pertenecen a ella.
+function realInsertarBotonCardHtml(mostrando, landing){
   return `
-    <button type="button" id="realBtnInsertarBotonCard" title="${mostrando ? 'Ocultar puntos de inserción' : 'Agregar botón entre secciones'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${mostrando ? '#7c3aed' : 'var(--line-strong)'}; background:${mostrando ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
-      <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${mostrando ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${mostrando ? '✕' : '+'}</span>
-      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${mostrando ? 'Ocultar Puntos de Inserción' : 'Agregar Botón entre Secciones'}</span>
-      <span class="ce-info-wrap" onclick="event.stopPropagation();">
-        <span class="ce-info-icon">?</span>
-        <span class="ce-info-tooltip">Muestra un "+" entre cada sección del celular para insertar ahí un botón "COMPRAR AHORA" — también viaja a Shopify.</span>
-      </span>
-    </button>
+    <div style="display:flex; flex-direction:column; gap:10px; padding:10px 14px; border-radius:12px; border:1px solid ${mostrando ? '#7c3aed' : 'var(--line-strong)'}; background:${mostrando ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
+      <button type="button" id="realBtnInsertarBotonCard" title="${mostrando ? 'Ocultar puntos de inserción' : 'Agregar botón entre secciones'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:0; border:none; background:none; cursor:pointer;">
+        <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${mostrando ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${mostrando ? '✕' : '+'}</span>
+        <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${mostrando ? 'Ocultar Puntos de Inserción' : 'Agregar Botón entre Secciones'}</span>
+        <span class="ce-info-wrap" onclick="event.stopPropagation();">
+          <span class="ce-info-icon">?</span>
+          <span class="ce-info-tooltip">Muestra un "+" entre cada sección del celular para insertar ahí un botón "COMPRAR AHORA" — también viaja a Shopify.</span>
+        </span>
+      </button>
+      ${mostrando ? `
+      <div id="realAnimacionIconoWrap" style="display:flex; flex-direction:column; gap:10px; padding-top:10px; border-top:1px solid rgba(124,58,237,0.35);">
+        ${realTextoBotonInnerHtml(landing)}
+        ${realAnimacionSelectInnerHtml(landing)}
+        ${realIconoBotonPickerInnerHtml(landing)}
+      </div>` : ''}
+    </div>
   `;
 }
 
@@ -6066,7 +6292,7 @@ function realVerLandingCompleta(landing){
   // derecho (Editor de elementos), no toca landing.items por sí solo.
   let mostrarInsertarBoton = false;
   overlay.innerHTML = `
-    <style>@keyframes realBtnPulse{0%,70%{transform:scale(1);}80%{transform:scale(1.06);}90%,100%{transform:scale(1);}}@keyframes realBarraScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}.realBarraTrack{animation:realBarraScroll 14s linear infinite;}.realBarraTrack.paused{animation-play-state:paused;}</style>
+    <style>@keyframes realBtnPulse{0%,70%{transform:scale(1);}80%{transform:scale(1.06);}90%,100%{transform:scale(1);}}@keyframes realBtnShake{0%,80%{transform:translateX(0);}84%{transform:translateX(-5px);}88%{transform:translateX(4px);}92%{transform:translateX(-3px);}96%{transform:translateX(2px);}100%{transform:translateX(0);}}@keyframes realBtnBounce{0%,68%,100%{transform:translateY(0);}75%{transform:translateY(-8px);}82%{transform:translateY(0);}88%{transform:translateY(-4px);}94%{transform:translateY(0);}}@keyframes realBarraScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}.realBarraTrack{animation:realBarraScroll 14s linear infinite;}.realBarraTrack.paused{animation-play-state:paused;}</style>
     <div style="display:flex; max-width:1140px; width:100%; max-height:90vh; background:var(--ink-2); border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;" onclick="event.stopPropagation();">
       <div style="width:230px; flex-shrink:0; padding:20px; display:flex; flex-direction:column; gap:10px; border-right:1px solid var(--line-strong); overflow-y:auto;">
         <div style="font-size:11px; color:var(--text-dimmer); text-transform:uppercase; letter-spacing:0.04em;">Landing completa</div>
@@ -6101,9 +6327,8 @@ function realVerLandingCompleta(landing){
       <div style="width:230px; flex-shrink:0; padding:20px; display:flex; flex-direction:column; gap:10px; border-left:1px solid var(--line-strong); overflow-y:auto;">
         <div style="font-size:11px; color:#a78bfa; text-transform:uppercase; letter-spacing:0.04em; font-weight:700;">Editor de elementos</div>
         <div style="font-size:11px; color:var(--text-dimmer); line-height:1.4;">Elementos que puedes agregar a esta landing.</div>
-        <div id="realInsertarBotonCardWrap">${realInsertarBotonCardHtml(mostrarInsertarBoton)}</div>
+        <div id="realInsertarBotonCardWrap">${realInsertarBotonCardHtml(mostrarInsertarBoton, landing)}</div>
         <div id="realBotonFlotanteCardWrap">${realBotonFlotanteCardHtml(landing)}</div>
-        <div id="realMovimientoCardWrap">${realMovimientoCardHtml(landing)}</div>
         <div id="realBarraCardWrap">${realBarraCardHtml(landing)}</div>
       </div>
     </div>
@@ -6121,7 +6346,12 @@ function realVerLandingCompleta(landing){
   seqEl.addEventListener('click', (e)=>{
     const btnInsert = e.target.closest('[data-insert-at]');
     if(btnInsert){
-      realInsertarBotonComprar(landing, parseInt(btnInsert.dataset.insertAt, 10));
+      // El texto de partida del botón nuevo sale del campo "Texto del botón"
+      // (a mano derecha, dentro de "Agregar Botón entre Secciones") tal como
+      // esté en ese momento — así el botón nuevo ya nace con el mismo texto
+      // que los demás, sin que el estudiante tenga que volver a escribirlo.
+      const textoGlobal = overlay.querySelector('#realInputTextoBotonGlobal')?.value?.trim();
+      realInsertarBotonComprar(landing, parseInt(btnInsert.dataset.insertAt, 10), textoGlobal);
       seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
       return;
     }
@@ -6161,18 +6391,53 @@ function realVerLandingCompleta(landing){
     item.colorTexto = realColorTextoContraste(item.color);
     apiActualizarLanding(landing, { items: landing.items });
     seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+    // Pedido 10/09: si hay más de un botón en la landing, preguntar (con el
+    // aviso propio del taller, no el confirm() feo del navegador — ver
+    // mostrarConfirmacion más arriba) si este mismo color se aplica también
+    // a todos los demás (los otros intercalados y el flotante) — con un solo
+    // botón en toda la landing no tiene sentido preguntar, no habría "los demás".
+    if(landingCantidadBotones(landing) > 1){
+      mostrarConfirmacion({
+        titulo: 'Aplicar color a todos',
+        mensaje: '¿Aplicar este mismo color a TODOS los botones "COMPRAR AHORA" de esta landing (los demás intercalados y el flotante)?',
+        textoConfirmar: 'Sí, aplicar a todos',
+        textoCancelar: 'No, solo este',
+        icono: '🎨',
+        colorAccent: '#7c3aed',
+        onConfirm: ()=>{
+          aplicarColorBotonGlobal(landing, item.color);
+          seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+          overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
+          apiActualizarLanding(landing, { items: landing.items, botonFlotanteColor: landing.botonFlotanteColor, botonFlotanteColorTexto: landing.botonFlotanteColorTexto });
+        },
+      });
+    }
   });
 
-  // Tarjeta "Agregar Botón entre Secciones": togglea si se ven los "+" entre
-  // cada sección dentro del celular. Solo repinta la tarjeta y la secuencia
-  // del teléfono — no toca landing.items ni llama al backend.
+  // Repinta la tarjeta "Agregar Botón entre Secciones" completa — incluida,
+  // si corresponde, el Texto/Animación/Icono de botón que ahora viven
+  // anidados adentro de este mismo cuadro (pedido 10/09) — y re-engancha los
+  // 4 controles que puede tener adentro (el botón de +/✕, el campo de texto,
+  // el <select> de animación y el grid de íconos). Se llama al togglear la
+  // tarjeta (esos controles solo se ven con "mostrando" activo, ver
+  // realInsertarBotonCardHtml más arriba) y cada vez que cambia el ícono
+  // elegido (para resaltar el nuevo).
+  function repintarInsertarBotonCard(){
+    overlay.querySelector('#realInsertarBotonCardWrap').innerHTML = realInsertarBotonCardHtml(mostrarInsertarBoton, landing);
+    wireInsertarBotonCard();
+    wireTextoBotonGlobal();
+    wireAnimacionSelect();
+    wireIconoBotonPicker();
+  }
+  // Botón "Agregar Botón entre Secciones" / "Ocultar Puntos de Inserción":
+  // togglea si se ven los "+" entre cada sección dentro del celular. No toca
+  // landing.items ni llama al backend — es solo un estado de vista.
   function wireInsertarBotonCard(){
     const btn = overlay.querySelector('#realBtnInsertarBotonCard');
     if(!btn) return;
     btn.onclick = ()=>{
       mostrarInsertarBoton = !mostrarInsertarBoton;
-      overlay.querySelector('#realInsertarBotonCardWrap').innerHTML = realInsertarBotonCardHtml(mostrarInsertarBoton);
-      wireInsertarBotonCard();
+      repintarInsertarBotonCard();
       seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
     };
   }
@@ -6249,31 +6514,110 @@ function realVerLandingCompleta(landing){
     if(!btn) return;
     btn.onclick = ()=>{
       landing.botonFlotante = !landing.botonFlotante;
+      // Mismo criterio que al insertar un botón intercalado nuevo (ver
+      // seqEl "click" de data-insert-at más abajo): si el flotante todavía
+      // no tenía su propio texto, arranca con el texto "global" actual — el
+      // del campo de la derecha si está a la vista, o si no el que ya tengan
+      // los demás botones — en vez de siempre "COMPRAR AHORA".
+      if(landing.botonFlotante && !landing.botonFlotanteTexto){
+        const input = overlay.querySelector('#realInputTextoBotonGlobal');
+        const texto = (input && input.value.trim()) || textoBotonGlobalActual(landing);
+        if(texto) landing.botonFlotanteTexto = texto;
+      }
       actualizarBotonFlotante();
     };
   }
   wireBotonFlotanteCard();
 
-  // Tarjeta "Agregar Movimiento": prende/apaga la animación de "shake" en
-  // TODOS los botones de la landing a la vez — repinta la propia tarjeta, la
-  // secuencia de botones intercalados y el botón flotante (si lo tiene), y
-  // sincroniza el cambio al backend.
-  function actualizarMovimiento(){
-    overlay.querySelector('#realMovimientoCardWrap').innerHTML = realMovimientoCardHtml(landing);
-    wireMovimientoCard();
+  // Campo "Texto del botón" (anidado adentro de la tarjeta "Agregar Botón
+  // entre Secciones", ver realInsertarBotonCardHtml): al sacarle el foco,
+  // pone ese mismo texto en TODOS los botones de la landing a la vez —
+  // repinta la secuencia de botones intercalados y el botón flotante, y
+  // sincroniza el cambio al backend (items completos + botonFlotanteTexto).
+  function actualizarTextoBotonGlobal(){
     seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
     overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
-    apiActualizarLanding(landing, { movimiento: !!landing.movimiento });
+    apiActualizarLanding(landing, { items: landing.items, botonFlotanteTexto: landing.botonFlotanteTexto });
   }
-  function wireMovimientoCard(){
-    const btn = overlay.querySelector('#realBtnMovimientoCard');
-    if(!btn) return;
-    btn.onclick = ()=>{
-      landing.movimiento = !landing.movimiento;
-      actualizarMovimiento();
+  function wireTextoBotonGlobal(){
+    const input = overlay.querySelector('#realInputTextoBotonGlobal');
+    if(!input) return;
+    // "change" (no "input"): solo se aplica al sacarle el foco, no en cada
+    // letra tipeada — igual que el resto de los campos de texto del taller.
+    input.addEventListener('change', ()=>{
+      aplicarTextoBotonGlobal(landing, input.value);
+      actualizarTextoBotonGlobal();
+    });
+    // Enter también cuenta como "terminé de escribir" (le saca el foco al
+    // input, lo que dispara el "change" de arriba).
+    input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') input.blur(); });
+  }
+  wireTextoBotonGlobal();
+
+  // Selector "Animación de botón" (anidado adentro de la tarjeta "Agregar
+  // Botón entre Secciones", ver realInsertarBotonCardHtml): cambia la
+  // animación (Ninguna/Sacudida/Rebote/Pulsación) en TODOS los botones de la
+  // landing a la vez — repinta la secuencia de botones intercalados y el
+  // botón flotante (si lo tiene), y sincroniza el cambio al backend. No hace
+  // falta repintar la tarjeta entera: es un <select> nativo, el navegador ya
+  // muestra el valor elegido solo.
+  function actualizarAnimacionBoton(){
+    seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+    overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
+    apiActualizarLanding(landing, { animacionBoton: landing.animacionBoton });
+  }
+  function wireAnimacionSelect(){
+    const sel = overlay.querySelector('#realSelectAnimacionBoton');
+    if(!sel) return;
+    sel.onchange = ()=>{
+      landing.animacionBoton = sel.value;
+      actualizarAnimacionBoton();
     };
   }
-  wireMovimientoCard();
+  wireAnimacionSelect();
+
+  // Grid "Icono de botón" (anidado en la misma tarjeta, ver comentario de
+  // arriba): elige el ícono monocromo de TODOS los botones de la landing a
+  // la vez — repinta la tarjeta completa (para resaltar el nuevo ícono
+  // elegido), la secuencia de botones intercalados y el botón flotante, y
+  // sincroniza el cambio al backend.
+  function actualizarIconoBoton(){
+    repintarInsertarBotonCard();
+    seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+    overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
+    apiActualizarLanding(landing, { iconoBoton: landing.iconoBoton });
+  }
+  function wireIconoBotonPicker(){
+    const wrap = overlay.querySelector('#realAnimacionIconoWrap');
+    if(!wrap) return;
+    const trigger = wrap.querySelector('#realIconoBotonTrigger');
+    const dropdown = wrap.querySelector('#realIconoBotonDropdown');
+    if(trigger && dropdown){
+      trigger.onclick = ()=>{ dropdown.hidden = !dropdown.hidden; };
+    }
+    wrap.querySelectorAll('[data-icono-boton]').forEach(btn=>{
+      btn.onclick = ()=>{
+        landing.iconoBoton = btn.dataset.iconoBoton;
+        // El repintado de actualizarIconoBoton() arma el desplegable de
+        // nuevo con "hidden" puesto (cerrado) — no hace falta cerrarlo acá.
+        actualizarIconoBoton();
+      };
+    });
+  }
+  wireIconoBotonPicker();
+  // "Click afuera cierra el desplegable": puesto UNA sola vez sobre el
+  // overlay entero, en fase de captura (así se entera del click ANTES de que
+  // el resto de los handlers puedan frenar la propagación con
+  // stopPropagation(), como hace el cuadro del modal para no cerrarse solo).
+  // Sigue funcionando después de cualquier repintado porque busca el
+  // desplegable de nuevo en el DOM en cada click, en vez de guardar una
+  // referencia vieja.
+  overlay.addEventListener('click', (e)=>{
+    const dropdown = overlay.querySelector('#realIconoBotonDropdown');
+    if(!dropdown || dropdown.hidden) return;
+    if(e.target.closest('#realIconoBotonDropdown') || e.target.closest('#realIconoBotonTrigger')) return;
+    dropdown.hidden = true;
+  }, true);
 
   // Tarjeta "Agregar Barra de Movimiento": repinta la barra en el teléfono y
   // la propia tarjeta, y sincroniza el cambio al backend.
@@ -6390,6 +6734,24 @@ function realVerLandingCompleta(landing){
     landing.botonFlotanteColorTexto = realColorTextoContraste(landing.botonFlotanteColor);
     apiActualizarLanding(landing, { botonFlotanteColor: landing.botonFlotanteColor, botonFlotanteColorTexto: landing.botonFlotanteColorTexto });
     flotanteEl.innerHTML = realBotonFlotanteHtml(landing);
+    // Mismo aviso de "aplicar a todos" que el color de los botones
+    // intercalados (ver seqEl "change" de data-color-boton más arriba).
+    if(landingCantidadBotones(landing) > 1){
+      mostrarConfirmacion({
+        titulo: 'Aplicar color a todos',
+        mensaje: '¿Aplicar este mismo color a TODOS los botones "COMPRAR AHORA" de esta landing (los demás intercalados y el flotante)?',
+        textoConfirmar: 'Sí, aplicar a todos',
+        textoCancelar: 'No, solo este',
+        icono: '🎨',
+        colorAccent: '#7c3aed',
+        onConfirm: ()=>{
+          aplicarColorBotonGlobal(landing, landing.botonFlotanteColor);
+          flotanteEl.innerHTML = realBotonFlotanteHtml(landing);
+          seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+          apiActualizarLanding(landing, { items: landing.items, botonFlotanteColor: landing.botonFlotanteColor, botonFlotanteColorTexto: landing.botonFlotanteColorTexto });
+        },
+      });
+    }
   });
 }
 
@@ -6438,6 +6800,8 @@ async function enviarLandingAShopify(landing, btnEl){
         botonFlotanteColor: landing.botonFlotanteColor || undefined,
         botonFlotanteColorTexto: landing.botonFlotanteColorTexto || undefined,
         movimiento: !!landing.movimiento,
+        animacionBoton: animacionEfectiva(landing),
+        iconoBoton: iconoBotonEfectivo(landing),
         barra: !!landing.barra,
         barraTexto: landing.barraTexto || undefined,
         barraColor: landing.barraColor || undefined,
@@ -7943,7 +8307,12 @@ async function cargarLandingsDesdeBackend(){
         num: fila.num,
         items: fila.items_json || [],
         botonFlotante: !!fila.boton_flotante,
+        botonFlotanteTexto: fila.boton_flotante_texto || undefined,
+        botonFlotanteColor: fila.boton_flotante_color || undefined,
+        botonFlotanteColorTexto: fila.boton_flotante_color_texto || undefined,
         movimiento: !!fila.movimiento,
+        animacionBoton: fila.animacion_boton || undefined,
+        iconoBoton: fila.icono_boton || undefined,
         barra: !!fila.barra,
         barraTexto: fila.barra_texto || undefined,
         barraColor: fila.barra_color || undefined,
