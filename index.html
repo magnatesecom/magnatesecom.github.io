@@ -2355,7 +2355,7 @@ let currentView = 'home'; // 'home' | 'workspace' | 'mislandings'
 // per-product state
 const state = {};
 function getState(p){
-  if(!state[p]) state[p] = { templateSelections:{}, gallery:[], creditsUsed:0, assembled:[], realAssembleMode:false, realAssembleOrder:[], realAssembledLandings:[], masivaActiva:false, fotosProducto:[null,null,null] };
+  if(!state[p]) state[p] = { templateSelections:{}, gallery:[], creditsUsed:0, assembled:[], realAssembleMode:false, realAssembleOrder:[], realAssembledLandings:[], masivaActiva:false, fotosProducto:[null,null,null], testimoniosModo:'plantilla', resenas:[] };
   return state[p];
 }
 
@@ -3265,6 +3265,19 @@ async function guardarFotosProductoBackend(nombreProducto){
     });
   }catch(err){ console.warn('No se pudo guardar la foto del producto en el backend:', err); }
 }
+// Pedido 11/09: sección "Testimonios" en modo Personalizada — guarda (todo el
+// arreglo de una sola vez, igual que guardarFotosProductoBackend) el modo
+// elegido y la lista completa de reseñas reales de este producto.
+async function apiGuardarResenasProducto(nombreProducto, testimoniosModo, resenas){
+  try{
+    await apiFetch(BACKEND_URL + '/productos/resenas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombreProducto, testimoniosModo, resenas }),
+    });
+  }catch(err){ console.warn('No se pudieron guardar las reseñas del producto en el backend:', err); }
+}
+
 function restaurarFotosProducto(fotos){
   if(!fotos) return;
   fotos.forEach((dataUrl, i)=>{
@@ -4354,7 +4367,12 @@ function renderTmTabs(){
   const st = getState(currentProduct);
   const tabsWrap = document.getElementById('tmTabs');
   tabsWrap.innerHTML = SECTION_TYPES.map(sec=>{
-    const tieneSeleccion = st.templateSelections[sec.key] && st.templateSelections[sec.key].size > 0;
+    // Testimonios en modo Personalizada: el punto de "ya elegido" depende de
+    // si hay reseñas reales cargadas, no de templateSelections (que en ese
+    // modo queda siempre vacío porque no se elige ninguna de las 19 plantillas).
+    const tieneSeleccion = sec.key === 'testimonios' && st.testimoniosModo === 'personalizada'
+      ? (st.resenas || []).length > 0
+      : st.templateSelections[sec.key] && st.templateSelections[sec.key].size > 0;
     return `<button class="tm-tab ${sec.key===tmActiveTab?'active':''}" data-sec="${sec.key}">${sec.label}${tieneSeleccion ? '<span class="tm-tab-dot"></span>' : ''}</button>`;
   }).join('') + `<button class="tm-tab ${tmActiveTab===TM_TAB_GUARDADAS?'active':''}" data-sec="${TM_TAB_GUARDADAS}">💾 Plantillas guardadas</button>`;
   tabsWrap.querySelectorAll('.tm-tab').forEach(btn=>{
@@ -4374,6 +4392,17 @@ function renderTmGrid(){
     return;
   }
   const sec = SECTION_TYPES.find(s=> s.key === tmActiveTab);
+  // Pedido 11/09: Testimonios en modo Personalizada — en vez de la galería
+  // de 19 plantillas (que sigue intacta en modo Plantilla), se muestra el
+  // panel para cargar reseñas reales. Corta acá mismo, antes de armar nada
+  // de la galería de plantillas.
+  if(sec.key === 'testimonios' && st.testimoniosModo === 'personalizada'){
+    document.getElementById('tmCountBadge').textContent = String((st.resenas||[]).length);
+    grid.innerHTML = resenasModoToggleHtml(st) + resenasPanelHtml(st);
+    wireResenasModoToggle(st);
+    wireResenasPanel(st);
+    return;
+  }
   const isHero = sec.key === 'hero';
   const isOferta = sec.key === 'oferta';
   const isLogistica = sec.key === 'logistica';
@@ -4485,7 +4514,8 @@ function renderTmGrid(){
               </div>
             </div>`);
   }
-  grid.innerHTML = items.join('');
+  grid.innerHTML = (sec.key === 'testimonios' ? resenasModoToggleHtml(st) : '') + items.join('');
+  if(sec.key === 'testimonios') wireResenasModoToggle(st);
 
   grid.querySelectorAll('.tm-card-outer').forEach(card=>{
     card.onclick = ()=>{
@@ -4583,6 +4613,265 @@ document.getElementById('tmUse').onclick = ()=>{
 document.getElementById('templateModal').addEventListener('click', (e)=>{
   if(e.target.id === 'templateModal') document.getElementById('tmCancel').click();
 });
+
+// Pedido 11/09: sección "Testimonios" en modo Personalizada. El estudiante
+// sube fotos y textos REALES de clientes reales, y la IA solo los adapta
+// (nunca inventa contenido) — ver adaptarResena() en text-generation.service.ts.
+// Esta parte de la UI vive en la misma pestaña "Testimonios" del modal de
+// plantillas, arriba de todo con un selector "Plantilla" / "Personalizada".
+
+function resenasModoToggleHtml(st){
+  const modo = st.testimoniosModo || 'plantilla';
+  const pill = (valor, label) => `<button type="button" class="tm-modo-resenas-btn" data-modo="${valor}" style="padding:8px 16px; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid ${modo===valor ? 'var(--coral)' : '#e4dfd0'}; background:${modo===valor ? 'var(--coral)' : 'transparent'}; color:${modo===valor ? '#1c1408' : '#6b6455'};">${label}</button>`;
+  return `
+    <div style="grid-column:1/-1; display:flex; align-items:center; gap:10px; padding:2px 4px 16px; border-bottom:1px solid #ece6d6; margin-bottom:16px;">
+      ${pill('plantilla', 'Plantilla')}
+      ${pill('personalizada', 'Personalizada')}
+      <span style="font-size:11.5px; color:#8a8270; line-height:1.4; max-width:420px;">
+        ${modo === 'personalizada'
+          ? 'Subís las fotos reales de cada reseña — la IA arma el resto (avatar, nombre, ciudad y texto) cuando toques "Generar" más abajo.'
+          : 'La IA genera una imagen de testimonios de ejemplo, igual que en el resto de las secciones.'}
+      </span>
+    </div>
+  `;
+}
+
+function wireResenasModoToggle(st){
+  document.querySelectorAll('.tm-modo-resenas-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const nuevoModo = btn.dataset.modo;
+      if(nuevoModo === st.testimoniosModo) return;
+      st.testimoniosModo = nuevoModo;
+      apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas || []);
+      renderTmGrid();
+      renderTmTabs();
+      // Elegir "Personalizada" ya cuenta como selección de esa sección (ver
+      // totalSelected) — sin este refresco, "Usar Plantilla(s)" quedaba
+      // deshabilitado hasta el próximo clic en la galería de otra sección.
+      updateTmHint();
+    };
+  });
+}
+
+function resenasListaHtml(st){
+  const resenas = st.resenas || [];
+  if(resenas.length === 0){
+    return `<div style="font-size:12px; color:#8a8270; padding:10px 0;">Todavía no cargaste ninguna reseña real.</div>`;
+  }
+  return `<div style="display:flex; flex-direction:column; gap:8px;">` + resenas.map(r => {
+    // Pedido 11/09 (versión final): la foto se sube al toque tal cual queda
+    // (nunca se toca) — pero el avatar (lo genera la IA aparte) y el
+    // nombre/ciudad/estrellas/texto recién se generan cuando se toca
+    // "Generar" (para que la IA ya tenga el país/idioma/personaje
+    // definitivos) — mientras tanto la reseña queda "pendiente" acá.
+    if(r.pendiente){
+      return `
+        <div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px dashed #e4dfd0; border-radius:10px; background:#f4f0e4;">
+          <img src="${r.fotoUrl}" alt="" style="width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0;">
+          <div style="flex:1; min-width:0; font-size:11.5px; color:#8a8270;">⏳ Pendiente — la IA genera el avatar y el texto cuando toques "Generar"</div>
+          <button type="button" data-quitar-resena="${r.id}" title="Quitar foto" style="background:none; border:none; color:#c96a6a; font-size:16px; cursor:pointer; flex-shrink:0;">×</button>
+        </div>
+      `;
+    }
+    return `
+    <div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid #e4dfd0; border-radius:10px; background:#f9f6ec;">
+      ${r.avatarUrl ? `<img src="${r.avatarUrl}" alt="" style="width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0;">` : `<span style="width:34px; height:34px; border-radius:50%; background:var(--coral); color:#1c1408; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</span>`}
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:12.5px; font-weight:700; color:#1c1810;">${r.nombre || ''}${r.ciudad ? ' · ' + r.ciudad : ''} <span style="color:#f0b90b;">${'★'.repeat(r.estrellas||5)}</span></div>
+        <div style="font-size:11.5px; color:#6b6455; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.texto || ''}</div>
+      </div>
+      <button type="button" data-quitar-resena="${r.id}" title="Eliminar reseña" style="background:none; border:none; color:#c96a6a; font-size:16px; cursor:pointer; flex-shrink:0;">×</button>
+    </div>
+  `;
+  }).join('') + `</div>`;
+}
+
+// Pedido 11/09 (versión final): el estudiante sube SOLO la foto real de
+// cada reseña (puede elegir varias de una) — esa foto se publica tal cual,
+// sin que la IA la toque. El avatar (una carita generada por IA, según el
+// "Personaje" del producto) y el nombre/ciudad/estrellas/texto se generan
+// aparte, recién al tocar "Generar" (ver el handler de "generateBtn").
+// Pedido 12/09: cuadrito de miniatura por cada foto real ya subida (esté
+// "pendiente" o ya lista) — solo la foto, sin nombre/avatar/texto (eso sigue
+// sin aparecer acá, según lo pedido antes: este panel es solo para subir).
+// Es la confirmación visual de "subí 1, 2, 3... fotos" que faltaba: antes de
+// esto, subir una foto acá no dejaba ningún rastro visible en este panel.
+// Cada miniatura tiene su propia "×" para sacar una foto subida por error,
+// ANTES de tocar "Generar" — la única forma de borrar una reseña ya lista
+// sigue siendo el 🗑 de la galería (ver renderGallery), pero antes de que se
+// genere no había ninguna manera de sacar una foto subida de más.
+function resenasFotosGridHtml(st){
+  const resenas = st.resenas || [];
+  if(resenas.length === 0) return '';
+  return `
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+      ${resenas.map(r=> `
+        <div style="position:relative; width:56px; height:56px; border-radius:8px; overflow:hidden; border:1px solid #e4dfd0; flex-shrink:0;">
+          <img src="${r.fotoUrl}" alt="" style="width:100%; height:100%; object-fit:cover; display:block;">
+          <button type="button" data-quitar-resena-foto="${r.id}" title="Quitar esta foto" style="position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%; background:rgba(10,15,25,0.65); border:none; color:#fff; font-size:10.5px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">×</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function resenasFormHtml(st){
+  return `
+    <div style="display:flex; flex-direction:column; gap:10px; padding:14px; border:1px dashed #e4dfd0; border-radius:12px;">
+      <div style="font-size:12px; font-weight:700; color:#1c1810;">+ Agregar reseñas reales</div>
+      <label for="resenaFotosInput" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; border-radius:10px; background:#f4f0e4;">
+        <span style="font-size:18px; flex-shrink:0;">📷</span>
+        <span style="font-size:11.5px; color:#6b6455; line-height:1.4;">Subí una o varias fotos reales, una por reseña — tocá para elegir. Esa foto se publica tal cual; el avatar y el texto los arma la IA sola cuando toques "Generar" más abajo.</span>
+        <input type="file" accept="image/*" multiple id="resenaFotosInput" style="display:none;">
+      </label>
+      <div id="resenasProgresoWrap" style="font-size:11.5px; color:#8a8270; display:none;"></div>
+      <div id="resenasFotosGridWrap">${resenasFotosGridHtml(st)}</div>
+    </div>
+  `;
+}
+
+// Pedido 12/09: este panel (Testimonios → Personalizada, adentro del modal
+// de plantillas) ya NO muestra la lista de reseñas ni el botón de borrar acá
+// — el estudiante solo sube las fotos. Las reseñas ya listas (con avatar y
+// texto generados por la IA al tocar "Generar") aparecen como piezas más
+// abajo, en la galería principal, agrupadas bajo "Testimonios" — igual que
+// cualquier otra sección — listas para elegir al "✨ Ensamblar" en el orden
+// que el estudiante quiera (ver renderGallery()). resenasListaHtml() y
+// wireResenasDeleteButtons() quedan definidas pero sin usar acá por si hace
+// falta volver a este panel más adelante.
+function resenasPanelHtml(st){
+  return `
+    <div style="grid-column:1/-1; display:flex; flex-direction:column; gap:14px;">
+      <div id="resenasFormWrap">${resenasFormHtml(st)}</div>
+    </div>
+  `;
+}
+
+// Re-wirea las "×" de las miniaturas (ver resenasFotosGridHtml) después de
+// cada actualización incremental del grid — mismo motivo que
+// wireResenasDeleteButtons: no se puede llamar a renderTmGrid() completo acá
+// porque destruiría el <input type="file"> mientras todavía puede estar
+// procesando el resto de las fotos elegidas.
+function wireResenasFotosGrid(st){
+  const gridWrap = document.getElementById('resenasFotosGridWrap');
+  if(!gridWrap) return;
+  gridWrap.querySelectorAll('[data-quitar-resena-foto]').forEach(btn=>{
+    btn.onclick = ()=>{
+      st.resenas = (st.resenas || []).filter(r => r.id !== btn.dataset.quitarResenaFoto);
+      apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+      gridWrap.innerHTML = resenasFotosGridHtml(st);
+      wireResenasFotosGrid(st);
+      renderTmTabs();
+    };
+  });
+}
+
+// Extraído aparte (no solo dentro de wireResenasPanel) para poder re-wirear
+// los botones de "×" después de cada actualización incremental de la lista
+// (al terminar de procesar cada foto, o al borrar una reseña) sin tener que
+// llamar a renderTmGrid() — eso destruiría el <input type="file"> mientras
+// todavía puede estar procesando el resto de las fotos elegidas.
+function wireResenasDeleteButtons(st){
+  const listaWrap = document.getElementById('resenasListaWrap');
+  if(!listaWrap) return;
+  listaWrap.querySelectorAll('[data-quitar-resena]').forEach(btn=>{
+    btn.onclick = ()=>{
+      st.resenas = (st.resenas || []).filter(r => r.id !== btn.dataset.quitarResena);
+      apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+      listaWrap.innerHTML = resenasListaHtml(st);
+      wireResenasDeleteButtons(st);
+      renderTmTabs();
+    };
+  });
+}
+
+function wireResenasPanel(st){
+  wireResenasFotosGrid(st);
+
+  const fotosInput = document.getElementById('resenaFotosInput');
+  const progresoWrap = document.getElementById('resenasProgresoWrap');
+  if(!fotosInput) return;
+
+  fotosInput.onchange = async (e)=>{
+    const files = Array.from(e.target.files || []);
+    if(files.length === 0) return;
+
+    fotosInput.disabled = true;
+    if(progresoWrap){ progresoWrap.style.display = 'block'; progresoWrap.style.color = '#8a8270'; }
+    let fallidas = 0;
+    let ultimoError = '';
+
+    for(let i = 0; i < files.length; i++){
+      const file = files[i];
+      if(progresoWrap) progresoWrap.textContent = `Subiendo foto ${i + 1} de ${files.length}…`;
+      try{
+        const dataUri = await new Promise((resolve, reject)=>{
+          const reader = new FileReader();
+          reader.onload = ()=> resolve(reader.result);
+          reader.onerror = ()=> reject(new Error('No se pudo leer el archivo.'));
+          reader.readAsDataURL(file);
+        });
+
+        const subeResp = await apiFetch(BACKEND_URL + '/ia/imagenes/subir-foto-producto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUri }),
+        });
+        const subeData = await subeResp.json().catch(()=> ({}));
+        if(!subeResp.ok || !subeData.url) throw new Error(subeData?.message || 'No se pudo subir la foto.');
+
+        // Pedido 11/09 (ajuste pedido por Norbey): acá SOLO se sube la foto y
+        // se guarda como reseña "pendiente" — ya NO se le pide el texto a la
+        // IA en este momento. Muchos estudiantes eligen las plantillas (y
+        // suben estas fotos) ANTES de terminar de llenar el país/ángulo de
+        // venta, así que en este momento esos datos todavía pueden estar
+        // vacíos. El texto de cada reseña pendiente se genera recién cuando
+        // se toca "Generar" —el mismo momento en que se genera el resto de
+        // las secciones—, ahí sí con el país e idioma ya definitivos (ver
+        // el handler de "generateBtn" más abajo en el archivo).
+        const nueva = {
+          id: 'resena-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          fotoUrl: subeData.url,
+          nombre: '',
+          ciudad: '',
+          estrellas: 0,
+          texto: '',
+          pendiente: true,
+          fechaCarga: new Date().toISOString(),
+        };
+        st.resenas = [...(st.resenas || []), nueva];
+        apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+        const gridWrap = document.getElementById('resenasFotosGridWrap');
+        if(gridWrap){
+          gridWrap.innerHTML = resenasFotosGridHtml(st);
+          wireResenasFotosGrid(st);
+        }
+        renderTmTabs();
+      }catch(err){
+        fallidas++;
+        ultimoError = err?.message || 'error desconocido';
+        console.warn('No se pudo subir una de las fotos de reseña:', err);
+      }
+    }
+
+    if(progresoWrap){
+      if(fallidas === 0){
+        progresoWrap.style.color = '#8a8270';
+        progresoWrap.textContent = `Listo — se agregaron ${files.length} foto${files.length === 1 ? '' : 's'}. Cuando toques "Generar" más abajo, la IA arma el avatar y el texto de cada una, y aparecen como piezas en la galería, en "Testimonios".`;
+        setTimeout(()=>{ if(progresoWrap) progresoWrap.style.display = 'none'; }, 5000);
+      } else {
+        // No se oculta solo si hubo algún error — así queda a la vista el
+        // motivo real (el mensaje que mandó el backend), en vez de
+        // desaparecer con un "no se pudo subir" genérico que no ayuda a
+        // saber qué pasó.
+        progresoWrap.style.color = '#c96a6a';
+        progresoWrap.textContent = `Se subieron ${files.length - fallidas} de ${files.length} fotos — ${fallidas} no se pudo${fallidas === 1 ? '' : 'ieron'} subir. Motivo: ${ultimoError}`;
+      }
+    }
+    fotosInput.disabled = false;
+    fotosInput.value = '';
+  };
+}
 
 // ---------------- Pestaña "💾 Plantillas guardadas" ----------------
 // Pedido 07/09: guardar con un nombre la combinación de plantillas elegida (una por sección)
@@ -4739,7 +5028,18 @@ function renderSectionBlocks(){
 function totalSelected(){
   const st = getState(currentProduct);
   let n = 0;
-  Object.values(st.templateSelections).forEach(set=> n += set.size);
+  SECTION_TYPES.forEach(sec=>{
+    // Testimonios en modo Personalizada no usa templateSelections (no se
+    // elige ninguna de las 19 plantillas) — pero elegir ese modo ya define
+    // por completo qué se va a generar para esa sección, así que cuenta
+    // como 1 selección para habilitar "Usar Plantilla(s)".
+    if(sec.key === 'testimonios' && st.testimoniosModo === 'personalizada'){
+      n += 1;
+      return;
+    }
+    const set = st.templateSelections[sec.key];
+    if(set) n += set.size;
+  });
   return n;
 }
 
@@ -5218,7 +5518,13 @@ document.getElementById('generateBtn').onclick = async ()=>{
       toGenerate.push({ id: id + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), sectionKey: sec.key, sectionLabel: sec.label, color: colorFor(id), templateId: id });
     });
   });
-  if(toGenerate.length === 0){
+  // Pedido 11/09 (ajuste): reseñas reales que ya tienen la foto subida pero
+  // todavía no tienen texto (ver wireResenasPanel) — se procesan acá mismo,
+  // junto con el resto de las secciones, para que la IA use el país/idioma
+  // ya definitivos en vez de los que hubiera a medio llenar cuando se subió
+  // la foto.
+  const resenasPendientes = (st.resenas || []).filter(r=> r.pendiente);
+  if(toGenerate.length === 0 && resenasPendientes.length === 0){
     btnGenerar.disabled = false;
     openTemplateModal();
     return;
@@ -5269,10 +5575,11 @@ document.getElementById('generateBtn').onclick = async ()=>{
   progress.style.width = '0%';
   document.getElementById('generateBtn').disabled = true;
 
+  const totalTrabajos = toGenerate.length + resenasPendientes.length;
   const errores = [];
   let done = 0;
   for(const g of toGenerate){
-    jobText.innerHTML = `Generando <b>${done+1}</b> de <b>${toGenerate.length}</b> — ${g.sectionLabel}...`;
+    jobText.innerHTML = `Generando <b>${done+1}</b> de <b>${totalTrabajos}</b> — ${g.sectionLabel}...`;
     progress.classList.add('indeterminate'); // no sabemos cuánto falta dentro de cada llamada, así que anima mientras espera
     try{
       const resp = await apiFetch(BACKEND_URL + '/ia/imagenes/generar-seccion', {
@@ -5301,16 +5608,97 @@ document.getElementById('generateBtn').onclick = async ()=>{
     }
     done++;
     progress.classList.remove('indeterminate');
-    progress.style.width = Math.round(done/toGenerate.length*100) + '%';
+    progress.style.width = Math.round(done/totalTrabajos*100) + '%';
   }
 
-  jobText.innerHTML = `Listo, <b>${done}</b> sección(es) generada(s)`;
+  // Pedido 11/09 (ajuste): reseñas con foto pero sin texto todavía — la IA
+  // recién ahora les escribe el texto, con el país/idioma ya definitivos
+  // (ficha.logistica.pais / ficha.idioma, calculados arriba con los campos
+  // tal como quedaron llenos justo antes de tocar "Generar").
+  for(const r of resenasPendientes){
+    done++;
+    jobText.innerHTML = `Generando <b>${done}</b> de <b>${totalTrabajos}</b> — Reseña...`;
+    progress.classList.add('indeterminate');
+    try{
+      // Pedido 11/09 (versión final): la foto que subió el estudiante (r.fotoUrl) NO se toca —
+      // se publica tal cual. Acá solo se genera lo que falta: el avatar (aparte, según el
+      // "Personaje" configurado) y el texto/nombre/ciudad/estrellas (sin mirar ninguna foto).
+      const yaListas = (st.resenas || []).filter(x=> !x.pendiente);
+      // Pedido 12/09 (bug reportado por Norbey, con captura: avatar de un hombre
+      // con el nombre "Catalina V."): el avatar (foto/carita) y el nombre se piden
+      // en dos llamadas separadas que no se comunican entre sí — si el "Sexo" del
+      // Personaje no quedó fijo en un solo valor ("Seleccionar..." o "Hombre y
+      // Mujer"), cada llamada elegía un sexo al azar por su cuenta, y podían no
+      // coincidir. Acá se decide UN solo sexo para ESTA reseña puntual, antes de
+      // llamar a ninguna de las dos, y se manda ese mismo valor a ambas — así el
+      // avatar y el nombre SIEMPRE quedan del mismo sexo.
+      const sexoConfigurado = (ficha.personajes?.sexo || '').trim();
+      const sexoEfectivoResena = (sexoConfigurado === 'Hombre' || sexoConfigurado === 'Mujer')
+        ? sexoConfigurado
+        : (Math.random() < 0.5 ? 'Hombre' : 'Mujer');
+      const [avatarResp, textoResp] = await Promise.all([
+        apiFetch(BACKEND_URL + '/ia/imagenes/generar-avatar-resena', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ personajes: { ...(ficha.personajes || {}), sexo: sexoEfectivoResena } }),
+        }),
+        apiFetch(BACKEND_URL + '/ia/texto/generar-texto-resena', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            nombreProducto: currentProduct,
+            idioma: ficha.idioma,
+            pais: ficha.logistica.pais,
+            nombresUsados: yaListas.map(x=> x.nombre).filter(Boolean),
+            ciudadesUsadas: yaListas.map(x=> x.ciudad).filter(Boolean),
+            // Pedido 12/09: el mismo sexo que se le mandó al avatar de arriba,
+            // para que el nombre inventado sea siempre acorde a la foto.
+            sexo: sexoEfectivoResena,
+            // Pedido 12/09: para que cada reseña tenga una estructura de
+            // frase distinta (ver ENFOQUES_RESENA en text-generation.service.ts)
+            // — se manda tanto lo ya escrito como la posición de ESTA reseña
+            // en la lista completa, para que el backend le asigne un enfoque
+            // fijo y distinto según esa posición.
+            textosUsados: yaListas.map(x=> x.texto).filter(Boolean),
+            indice: (st.resenas || []).findIndex(x=> x.id === r.id),
+          }),
+        }),
+      ]);
+      const avatarData = await avatarResp.json().catch(()=> ({}));
+      if(!avatarResp.ok) throw new Error(avatarData?.message || `Error ${avatarResp.status} generando el avatar`);
+      const textoData = await textoResp.json().catch(()=> ({}));
+      if(!textoResp.ok) throw new Error(textoData?.message || `Error ${textoResp.status} generando el texto`);
+
+      r.avatarUrl = avatarData.avatarUrl || '';
+      r.nombre = textoData.nombre || 'Cliente V.';
+      r.ciudad = textoData.ciudad || '';
+      r.estrellas = textoData.estrellas || 5;
+      r.texto = textoData.texto || '';
+      delete r.pendiente;
+    }catch(err){
+      console.error('Error generando reseña', err);
+      errores.push({ seccion: 'Reseña', mensaje: err.message });
+    }
+    progress.classList.remove('indeterminate');
+    progress.style.width = Math.round(done/totalTrabajos*100) + '%';
+  }
+  if(resenasPendientes.length){
+    apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+  }
+
+  jobText.innerHTML = `Listo, <b>${done}</b> elemento(s) generado(s)`;
   st.creditsUsed += toGenerate.length;
   SECTION_TYPES.forEach(sec=> st.templateSelections[sec.key].clear());
   setTimeout(()=> banner.classList.remove('active'), 600);
   document.getElementById('generateBtn').disabled = false;
   renderAll();
-  document.getElementById('galleryWrap').scrollIntoView({behavior:'smooth', block:'start'});
+  // Pedido 12/09: las reseñas ya generadas (avatar + texto listos) también
+  // aparecen como piezas en la galería (agrupadas bajo "Testimonios" — ver
+  // renderGallery()), así que hay que bajar a verla también cuando SOLO se
+  // procesaron reseñas (sin ninguna plantilla de imagen).
+  if(toGenerate.length > 0 || resenasPendientes.length > 0){
+    document.getElementById('galleryWrap').scrollIntoView({behavior:'smooth', block:'start'});
+  }
   if(errores.length){
     mostrarSeccionesErrorModal(errores);
   }
@@ -5351,12 +5739,94 @@ document.getElementById('seccionesErrorModal').addEventListener('click', (e)=>{
 });
 
 // ---------------- GALLERY ----------------
+// Pedido 12/09: las reseñas reales ya listas (avatar + texto generados por
+// la IA al tocar "Generar" — ver el handler de "generateBtn") se muestran
+// como piezas más en esta galería, agrupadas bajo "Testimonios", en vez de
+// vivir solo adentro del modal de Personalizada. No se guardan como items
+// nuevos de st.gallery (eso duplicaría el guardado — st.resenas ya se
+// persiste solo en el backend, ver apiGuardarResenasProducto): se arman acá
+// mismo, al renderizar, a partir de st.resenas. Las que siguen "pendiente"
+// (solo la foto subida, esperando "Generar") todavía no aparecen acá.
+function resenasListasParaGaleria(st){
+  return (st.resenas || []).filter(r=> !r.pendiente).map(r=> ({ id: r.id, isResena: true, resena: r }));
+}
+
+// Busca una pieza de la galería por id, ya sea una pieza real (st.gallery)
+// o una reseña ya lista (st.resenas) — hace falta este helper porque ambas
+// conviven visualmente en la misma galería pero viven en dos arrays
+// distintos (ver resenasListasParaGaleria más arriba).
+function buscarPiezaGaleria(st, id){
+  const enGaleria = st.gallery.find(g=> String(g.id) === String(id));
+  if(enGaleria) return enGaleria;
+  const resena = (st.resenas || []).find(r=> !r.pendiente && String(r.id) === String(id));
+  return resena ? { id: resena.id, isResena: true, resena } : null;
+}
+
+// Pedido 12/09: el "Hace X días/semanas/meses" del visor ("Ver Anuncio") ya
+// NO se calcula con la fecha real en que se subió la foto (fechaCarga) —
+// como normalmente se suben todas las fotos de las reseñas juntas, de una
+// sola vez, se veía poco natural que TODAS dijeran "Hace 0 días". Ahora es
+// una secuencia FIJA según el orden de las reseñas en la lista (la primera
+// es la "más reciente"): este cálculo tiene que ser IDÉNTICO al de
+// calcularTiempoRelativo() en shopify.service.ts (mismos pasos, mismo
+// orden), para que lo que el estudiante ve acá en el taller sea igual a lo
+// que después se ve en la landing publicada de verdad.
+function resenaTiempoRelativo(st, resena){
+  const indice = (st.resenas || []).findIndex(r=> r.id === resena.id);
+  const dias = [1, 3, 5];
+  if(indice < dias.length){
+    const d = dias[Math.max(0, indice)];
+    return d === 1 ? 'Hace 1 día' : `Hace ${d} días`;
+  }
+  const semanas = [1, 2, 3];
+  const idxSemana = indice - dias.length;
+  if(idxSemana < semanas.length){
+    const s = semanas[idxSemana];
+    return s === 1 ? 'Hace 1 semana' : `Hace ${s} semanas`;
+  }
+  const meses = indice - dias.length - semanas.length + 1;
+  return meses <= 1 ? 'Hace 1 mes' : `Hace ${meses} meses`;
+}
+
+// Miniatura de una reseña real dentro de la galería: mismo tamaño/estructura
+// que el resto de las piezas (mismos botones "👁 Ver Anuncio" / "🗑" y misma
+// insignia de selección al Ensamblar), pero con una vista previa propia en
+// vez de una sola imagen plana — avatar + nombre arriba, estrellas, y la
+// foto real que subió el estudiante abajo.
+function resenaCardHtml(it, st){
+  const r = it.resena;
+  const avatarImg = r.avatarUrl
+    ? `<img src="${r.avatarUrl}" alt="" style="width:22px; height:22px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+    : `<span style="width:22px; height:22px; border-radius:50%; background:var(--coral); color:#1c1408; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</span>`;
+  return `
+    <div class="frame ${st.realAssembleMode?'ce-card-pick':''}" style="padding:0; overflow:hidden; ${st.realAssembleMode?'cursor:pointer;':'cursor:default;'}" data-realid="${it.id}">
+      <div style="position:relative;">
+        <img src="${r.fotoUrl}" alt="Testimonios" style="width:100%; height:150px; object-fit:cover; display:block;">
+        <div style="position:absolute; top:6px; left:6px; right:6px; display:flex; align-items:center; gap:6px; background:rgba(10,15,25,0.65); border-radius:20px; padding:3px 8px 3px 3px;">
+          ${avatarImg}
+          <span style="font-size:10.5px; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">${r.nombre||''}</span>
+          <span style="font-size:10px; color:#6fcf97; flex-shrink:0;">✓</span>
+        </div>
+        <div style="position:absolute; bottom:6px; left:6px; font-size:10.5px; color:#f0b90b; text-shadow:0 1px 3px rgba(0,0,0,0.7);">${'★'.repeat(r.estrellas||5)}</div>
+        ${st.realAssembleMode ? `<div class="ce-pick-badge ${st.realAssembleOrder.includes(it.id)?'picked':''}" data-realpick="${it.id}">${st.realAssembleOrder.includes(it.id) ? st.realAssembleOrder.indexOf(it.id)+1 : ''}</div>` : ''}
+      </div>
+      ${st.realAssembleMode ? '' : `
+      <div class="ce-card-actions">
+        <button class="ce-view-btn" data-viewid="${it.id}">👁 Ver Anuncio</button>
+        <button class="ce-delete-btn" data-delid="${it.id}" title="Eliminar">🗑</button>
+      </div>`}
+    </div>
+  `;
+}
+
 function renderGallery(){
   const wrap = document.getElementById('galleryWrap');
   const st = getState(currentProduct);
   renderRealAssembledLandings();
 
-  if(st.gallery.length === 0){
+  const resenasListas = resenasListasParaGaleria(st);
+
+  if(st.gallery.length === 0 && resenasListas.length === 0){
     wrap.innerHTML = `<div class="empty-gallery"><div class="eg-icon">🖼</div><b>Sin secciones generadas</b>Las secciones que generes aparecerán aquí organizadas por tipo</div>`;
     return;
   }
@@ -5366,7 +5836,12 @@ function renderGallery(){
     if(!bySec[g.sectionKey]) bySec[g.sectionKey] = [];
     bySec[g.sectionKey].push(g);
   });
+  if(resenasListas.length){
+    if(!bySec['testimonios']) bySec['testimonios'] = [];
+    bySec['testimonios'] = bySec['testimonios'].concat(resenasListas);
+  }
 
+  const totalPiezas = st.gallery.length + resenasListas.length;
   const nSel = st.realAssembleOrder.length;
   const toolbar = st.realAssembleMode ? `
     <div class="ce-toolbar">
@@ -5379,7 +5854,7 @@ function renderGallery(){
     </div>
   ` : `
     <div class="ce-toolbar">
-      <div class="ce-toolbar-count">${st.gallery.length} pieza(s) generada(s)</div>
+      <div class="ce-toolbar-count">${totalPiezas} pieza(s) generada(s)</div>
       <div class="ce-toolbar-actions">
         <button class="ce-toolbar-btn ce-toolbar-btn-primary" id="realDescargaMasiva">⬇ Descarga masiva</button>
         <button class="ce-toolbar-btn ce-toolbar-btn-dark" id="realEnsamblarLanding">✨ Ensamblar</button>
@@ -5395,7 +5870,7 @@ function renderGallery(){
       <div class="filmstrip-group">
         <div class="filmstrip-h"><h4>${sec.label}</h4><div class="line"></div><span class="cnt">${items.length}</span></div>
         <div class="filmstrip">
-          ${items.map(it=> it.image ? `
+          ${items.map(it=> it.isResena ? resenaCardHtml(it, st) : it.image ? `
             <div class="frame ${st.realAssembleMode?'ce-card-pick':''}" style="padding:0; overflow:hidden; ${st.realAssembleMode?'cursor:pointer;':'cursor:default;'}" data-realid="${it.id}">
               <div style="position:relative;">
                 <img src="${it.image}" alt="${sec.label}" style="width:100%; height:150px; object-fit:cover; display:block;">
@@ -5440,15 +5915,24 @@ function renderGallery(){
   wrap.querySelectorAll('[data-viewid]').forEach(btn=>{
     btn.onclick = (e)=>{
       e.stopPropagation();
-      const item = st.gallery.find(g=>g.id===btn.dataset.viewid);
-      if(item && item.image) openRealLightbox(item);
+      const item = buscarPiezaGaleria(st, btn.dataset.viewid);
+      if(item && (item.image || item.isResena)) openRealLightbox(item);
     };
   });
 
   wrap.querySelectorAll('[data-delid]').forEach(btn=>{
     btn.onclick = (e)=>{
       e.stopPropagation();
-      st.gallery = st.gallery.filter(g=> g.id !== btn.dataset.delid);
+      const id = btn.dataset.delid;
+      if(st.gallery.some(g=> String(g.id) === String(id))){
+        st.gallery = st.gallery.filter(g=> String(g.id) !== String(id));
+      } else {
+        // Es una reseña real, no una pieza de st.gallery — se borra de
+        // st.resenas (igual que el "×" que antes vivía adentro del modal de
+        // Personalizada) y se guarda ese borrado en el backend.
+        st.resenas = (st.resenas || []).filter(r=> String(r.id) !== String(id));
+        apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+      }
       renderGallery();
     };
   });
@@ -5609,7 +6093,48 @@ function attachZoomPan(wrapper, imgEl){
   });
 }
 
+// Visor "Ver Anuncio" para una reseña real: a diferencia del resto de las
+// piezas (una sola imagen plana), acá hay que armar la tarjeta completa —
+// avatar, nombre, ciudad, verificada, estrellas, texto y la foto real que
+// subió el estudiante — igual que se ve en la landing publicada.
+function openRealLightboxResena(item){
+  const r = item.resena;
+  const st = getState(currentProduct);
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.88); z-index:9999; display:flex; align-items:center; justify-content:center; padding:30px;';
+  const avatarImg = r.avatarUrl
+    ? `<img src="${r.avatarUrl}" alt="" style="width:44px; height:44px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+    : `<span style="width:44px; height:44px; border-radius:50%; background:var(--coral); color:#1c1408; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</span>`;
+  overlay.innerHTML = `
+    <div style="max-width:380px; width:100%; max-height:90vh; overflow:auto; background:#fff; border-radius:16px; padding:22px;" onclick="event.stopPropagation();">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          ${avatarImg}
+          <div style="min-width:0;">
+            <div style="font-weight:700; font-size:14px; color:#1c1810; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.nombre||''}</div>
+            <div style="font-size:12px; color:#8a8270;">${r.ciudad||''}</div>
+          </div>
+        </div>
+        <span style="font-size:11px; font-weight:700; color:#2f9e5b; display:flex; align-items:center; gap:3px; flex-shrink:0;">✓ Verificada</span>
+      </div>
+      <div style="color:#f0b90b; font-size:15px; margin-bottom:10px;">${'★'.repeat(r.estrellas||5)}</div>
+      <div style="font-size:13.5px; color:#1c1810; line-height:1.5; margin-bottom:14px;">${r.texto||''}</div>
+      <img src="${r.fotoUrl}" alt="" style="width:100%; border-radius:10px; display:block; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="font-size:11px; color:#8a8270;">${resenaTiempoRelativo(st, r)}</div>
+        <button class="ce-modal-btn" id="realBtnResenaFoto" style="background:#f4f0e4; color:#1c1810; border:1px solid #e4dfd0;">⬇ Descargar foto</button>
+      </div>
+    </div>
+    <button id="realModalClose" style="position:absolute; top:24px; right:28px; background:none; border:none; color:#fff; font-size:26px; cursor:pointer; line-height:1;">×</button>
+  `;
+  overlay.onclick = ()=> overlay.remove();
+  document.body.appendChild(overlay);
+  overlay.querySelector('#realModalClose').onclick = ()=> overlay.remove();
+  overlay.querySelector('#realBtnResenaFoto').onclick = (e)=> galleryDownload(r.fotoUrl, ('resena-' + (r.nombre||'foto')).replace(/[^a-z0-9\-]/gi,'_') + '.png', e.currentTarget);
+}
+
 function openRealLightbox(item){
+  if(item.isResena) return openRealLightboxResena(item);
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.88); z-index:9999; display:flex; align-items:center; justify-content:center; padding:30px;';
   const filename = (item.sectionKey + '-' + (item.templateId || 'landing')).replace(/[^a-z0-9\-]/gi,'_');
@@ -5710,9 +6235,28 @@ async function apiEliminarLanding(landing){
 
 function realConfirmarEnsamblarLanding(){
   const st = getState(currentProduct);
-  const ordered = st.realAssembleOrder
-    .map(id => st.gallery.find(g=> String(g.id) === String(id)))
-    .filter(Boolean);
+  // Pedido 12/09: si entre las piezas elegidas hay una o más reseñas reales
+  // (sección "Testimonios" en modo Personalizada), NO entran una por una a
+  // la landing — se juntan en un único marcador {tipo:'resenas'}, en la
+  // posición de la PRIMERA reseña elegida (según el orden en que se
+  // seleccionaron), y ese marcador trae TODAS las reseñas ya generadas del
+  // producto (no solo las que se hayan tocado en la galería) — así funciona
+  // de verdad el bloque de reseñas en Shopify: una sola sección con todas
+  // las reseñas adentro, no una sección por reseña. Este mismo marcador es
+  // el que ya entiende realResenasMarcadorHtml/enviarLandingAShopify más
+  // abajo (es el mismo que arma la tarjeta "Agregar Sección de Reseñas" del
+  // editor de la landing).
+  let yaIncluyeResenas = false;
+  const ordered = [];
+  st.realAssembleOrder.forEach(id=>{
+    const galItem = st.gallery.find(g=> String(g.id) === String(id));
+    if(galItem){ ordered.push(galItem); return; }
+    const esResena = (st.resenas || []).some(r=> !r.pendiente && String(r.id) === String(id));
+    if(esResena && !yaIncluyeResenas){
+      yaIncluyeResenas = true;
+      ordered.push({ tipo: 'resenas', id: 'resenas-' + Date.now().toString(36) });
+    }
+  });
   if(ordered.length === 0) return;
 
   st.realAssembleMode = false;
@@ -5750,6 +6294,8 @@ function renderRealAssembledLandings(){
               </div>
               ${landing.items.map(item => item.tipo === 'boton_comprar'
                 ? `<div style="padding:8px 12px; background:#f5f1e4;"><div style="width:100%; padding:9px; background:#000; color:#fff; text-align:center; font-weight:800; font-size:10px; letter-spacing:0.03em; border-radius:4px;">COMPRAR AHORA</div></div>`
+                : item.tipo === 'resenas'
+                ? `<div style="padding:10px 12px; background:#f5f1e4; text-align:center; font-size:10px; font-weight:700; color:#7c3aed; border-top:1px dashed #cbbfa0; border-bottom:1px dashed #cbbfa0;">💬 Reseñas reales</div>`
                 : `<img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel}">`
               ).join('')}
               <div style="display:flex; align-items:center; justify-content:space-around; padding:8px 10px; background:#f5f1e4; position:sticky; bottom:0;">
@@ -5920,12 +6466,100 @@ function realBotonComprarHtml(item){
 function realSecuenciaEditableHtml(landing, mostrarGaps){
   let html = realInsertGapHtml(0, mostrarGaps);
   landing.items.forEach((item, i)=>{
-    html += item.tipo === 'boton_comprar'
-      ? realBotonComprarHtml(item)
-      : `<img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel||''}">`;
+    if(item.tipo === 'boton_comprar') html += realBotonComprarHtml(item);
+    else if(item.tipo === 'resenas') html += realResenasMarcadorHtml(item);
+    else html += `<img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel||''}">`;
     html += realInsertGapHtml(i+1, mostrarGaps);
   });
   return html;
+}
+
+// Debe reflejar lo mismo que calcularResumenResenas() en shopify.service.ts
+// (mismo promedio/total/%) — para que el resumen que se ve acá en el editor
+// sea igual al que se va a publicar de verdad.
+function resenasResumenGaleria(resenas){
+  const total = resenas.length;
+  const conteos = {5:0,4:0,3:0,2:0,1:0};
+  let suma = 0;
+  resenas.forEach(r=>{
+    const estrellas = Math.min(5, Math.max(1, Math.round(Number(r.estrellas) || 5)));
+    conteos[estrellas]++;
+    suma += estrellas;
+  });
+  const pct = {};
+  [5,4,3,2,1].forEach(k=> pct[k] = total>0 ? Math.round((conteos[k]/total)*100) : 0);
+  return { promedio: total>0 ? (suma/total).toFixed(2) : '5.00', total, pct };
+}
+
+// Pedido 12/09: acá antes solo había un aviso ("Acá van las reseñas
+// reales") en vez de mostrar las tarjetas de verdad — el estudiante pedía
+// ver, adentro del "Ver landing", cómo van a quedar ensambladas de una. Este
+// bloque ahora arma el mismo resumen (promedio + barras) y las mismas
+// tarjetas (avatar, nombre, ciudad, verificada, estrellas, texto, foto,
+// tiempo) que arma seccionResenasLiquid en shopify.service.ts — mismo
+// aspecto que va a tener la sección real en Shopify, solo que dibujado acá
+// en HTML/JS en vez de Liquid. La "×" para quitar la sección se mantiene.
+function realResenasMarcadorHtml(item){
+  const st = getState(currentProduct);
+  const resenas = (st.resenas || []).filter(r=> !r.pendiente);
+  const botonQuitar = `<button data-remove-item="${item.id}" title="Quitar sección de reseñas" style="position:absolute; top:6px; right:8px; background:rgba(255,255,255,0.85); border-radius:50%; width:22px; height:22px; border:none; color:#c96a6a; font-size:15px; cursor:pointer; line-height:1; z-index:2;">×</button>`;
+  if(resenas.length === 0){
+    // Todavía no hay ninguna reseña lista — se deja el aviso de siempre en
+    // vez de una caja vacía.
+    return `<div style="padding:14px; background:#f5f1e4; position:relative; border-top:1px dashed #cbbfa0; border-bottom:1px dashed #cbbfa0;">
+      <div style="display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:14px 16px; background:#fff; border:1px dashed #7c3aed; border-radius:10px; color:#7c3aed; font-weight:700; font-size:11.5px; letter-spacing:0.02em;">
+        💬 Acá van las reseñas reales
+      </div>
+      ${botonQuitar}
+    </div>`;
+  }
+  const resumen = resenasResumenGaleria(resenas);
+  const barra = (n, pct) => `
+    <div style="display:flex; align-items:center; gap:6px; font-size:9.5px; color:#555;">
+      <span style="width:8px; text-align:right;">${n}</span>
+      <div style="flex:1; height:5px; background:#eee; border-radius:99px; overflow:hidden;"><div style="height:100%; width:${pct}%; background:#f0b90b;"></div></div>
+      <span style="width:24px; color:#999;">${pct}%</span>
+    </div>`;
+  const tarjetas = resenas.map(r=>{
+    const estrellas = Math.min(5, Math.max(1, Math.round(Number(r.estrellas) || 5)));
+    const avatarImg = r.avatarUrl
+      ? `<img src="${r.avatarUrl}" alt="" style="width:30px; height:30px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+      : `<div style="width:30px; height:30px; border-radius:50%; background:#7c3aed; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</div>`;
+    return `
+      <div style="border:1px solid #ececec; border-radius:12px; padding:10px; background:#fff;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${avatarImg}
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:11px; color:#1a1a1a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.nombre||''}</div>
+            ${r.ciudad ? `<div style="font-size:9.5px; color:#8a8a8a;">${r.ciudad}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0; display:flex; align-items:center; gap:2px; background:#e9f9ee; color:#1a9e57; font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:99px; white-space:nowrap;">✓ Verificada</div>
+        </div>
+        <div style="color:#f0b90b; font-size:11px; margin:6px 0 4px;">${'★'.repeat(estrellas)}${'☆'.repeat(5-estrellas)}</div>
+        <div style="font-size:10.5px; line-height:1.4; color:#2a2a2a;">${r.texto||''}</div>
+        ${r.fotoUrl ? `<img src="${r.fotoUrl}" alt="" style="display:block; max-width:100%; width:100%; border-radius:8px; margin-top:6px;">` : ''}
+        <div style="font-size:9px; color:#aaa; margin-top:6px;">${resenaTiempoRelativo(st, r)}</div>
+      </div>`;
+  }).join('');
+  return `<div style="padding:14px; background:#f5f1e4; position:relative; border-top:1px dashed #cbbfa0; border-bottom:1px dashed #cbbfa0;">
+    <div style="text-align:center; margin-bottom:8px;">
+      <div style="font-size:9px; font-weight:800; letter-spacing:0.05em; color:#7c3aed; text-transform:uppercase;">Lo que dicen nuestros clientes</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; border:1px solid #e7e3f5; border-radius:12px; padding:10px; margin-bottom:10px; background:#fff;">
+      <div style="text-align:center; flex-shrink:0;">
+        <div style="font-size:20px; font-weight:800; color:#1a1a1a; line-height:1;">${resumen.promedio}</div>
+        <div style="color:#f0b90b; font-size:10px; margin:3px 0;">★★★★★</div>
+        <div style="font-size:8.5px; color:#8a8a8a; white-space:nowrap;">${resumen.total} reseñas</div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:3px; min-width:0;">
+        ${barra(5, resumen.pct[5])}${barra(4, resumen.pct[4])}${barra(3, resumen.pct[3])}${barra(2, resumen.pct[2])}${barra(1, resumen.pct[1])}
+      </div>
+    </div>
+    <div style="max-height:340px; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; gap:8px;">
+      ${tarjetas}
+    </div>
+    ${botonQuitar}
+  </div>`;
 }
 
 // Pedido 10/09 (2): un botón nuevo ya nace con texto y color fijos
@@ -5979,6 +6613,40 @@ function realBotonFlotanteCardHtml(landing){
       <span class="ce-info-wrap" onclick="event.stopPropagation();">
         <span class="ce-info-icon">?</span>
         <span class="ce-info-tooltip">Botón "Comprar" fijo abajo del celular, que sigue al usuario al hacer scroll.</span>
+      </span>
+    </button>
+  `;
+}
+
+// Pedido 11/09: sección "Testimonios" en modo Personalizada — tarjeta que
+// agrega/quita el bloque real de reseñas (foto + texto reales, adaptados
+// por IA) a la landing. Solo se puede activar si el producto ya está en
+// modo "Personalizada" (se elige en Testimonios → Seleccionar Plantilla) y
+// tiene al menos 1 reseña real cargada — si no, se muestra deshabilitada
+// con una pista de qué hacer, en vez de dejar clickear en el vacío.
+function realResenasCardHtml(landing, st){
+  const modoOk = st.testimoniosModo === 'personalizada';
+  const cantidad = (st.resenas || []).length;
+  const disponible = modoOk && cantidad > 0;
+  const activo = !!landing.items.some(it => it.tipo === 'resenas');
+  if(!disponible){
+    const motivo = !modoOk
+      ? 'Elegí "Personalizada" en Testimonios → Seleccionar Plantilla'
+      : 'Todavía no cargaste ninguna reseña real en Testimonios → Personalizada';
+    return `
+      <div style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 14px; border-radius:12px; border:1px dashed var(--line-strong); background:var(--ink-2); opacity:0.65;">
+        <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,0.08);">💬</span>
+        <span style="display:block; font-size:11.5px; color:var(--text-dim); line-height:1.35;">${motivo}</span>
+      </div>
+    `;
+  }
+  return `
+    <button type="button" id="realBtnResenasCard" title="${activo ? 'Quitar sección de reseñas' : 'Agregar sección de reseñas'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
+      <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${activo ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${activo ? '🔓' : '💬'}</span>
+      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${activo ? 'Quitar Sección de Reseñas' : `Agregar Sección de Reseñas (${cantidad})`}</span>
+      <span class="ce-info-wrap" onclick="event.stopPropagation();">
+        <span class="ce-info-icon">?</span>
+        <span class="ce-info-tooltip">Agrega el bloque real de reseñas (con scroll) al final de esta landing, con las ${cantidad} reseña${cantidad===1?'':'s'} real${cantidad===1?'':'es'} que cargaste en Testimonios.</span>
       </span>
     </button>
   `;
@@ -6106,6 +6774,7 @@ function realInsertarBotonCardHtml(mostrando){
 }
 
 function realVerLandingCompleta(landing){
+  const st = getState(currentProduct);
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.88); z-index:9999; display:flex; align-items:center; justify-content:center; padding:30px;';
   // Controla si se ven los "+" entre secciones dentro del celular — se prende
@@ -6150,6 +6819,7 @@ function realVerLandingCompleta(landing){
         <div style="font-size:11px; color:var(--text-dimmer); line-height:1.4;">Elementos que puedes agregar a esta landing.</div>
         <div id="realInsertarBotonCardWrap">${realInsertarBotonCardHtml(mostrarInsertarBoton)}</div>
         <div id="realBotonFlotanteCardWrap">${realBotonFlotanteCardHtml(landing)}</div>
+        <div id="realResenasCardWrap">${realResenasCardHtml(landing, st)}</div>
         <div id="realBarraCardWrap">${realBarraCardHtml(landing)}</div>
       </div>
     </div>
@@ -6175,6 +6845,11 @@ function realVerLandingCompleta(landing){
     if(btnRemove){
       realQuitarItemLanding(landing, btnRemove.dataset.removeItem);
       seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+      // La "×" de la vista previa puede haber quitado justo el marcador de
+      // reseñas — repinta la tarjeta para que vuelva a decir "Agregar..." en
+      // vez de quedar mostrando "Quitar..." con el bloque ya sacado.
+      overlay.querySelector('#realResenasCardWrap').innerHTML = realResenasCardHtml(landing, st);
+      wireResenasCard();
       return;
     }
   });
@@ -6204,7 +6879,7 @@ function realVerLandingCompleta(landing){
     const original = btnEl.textContent;
     btnEl.textContent = '⏳ Descargando…'; btnEl.disabled = true;
     try{
-      const merged = await realMergeIntoCanvas(landing.items.filter(it => it.tipo !== 'boton_comprar'));
+      const merged = await realMergeIntoCanvas(landing.items.filter(it => it.tipo !== 'boton_comprar' && it.tipo !== 'resenas'));
       const blob = await new Promise(res=> merged.toBlob(res, formato==='2k'?'image/png':'image/webp', formato==='2k'?undefined:0.82));
       if(!blob) throw new Error('No se pudo generar la imagen combinada');
       await downloadBlobDirect(blob, `landing_${landing.num}_completa${formato==='2k'?'_2K.png':'_optimizada.webp'}`);
@@ -6216,7 +6891,7 @@ function realVerLandingCompleta(landing){
 
   async function descargarPorSecciones(formato, btnEl){
     const original = btnEl.textContent;
-    const soloImagenes = landing.items.filter(it => it.tipo !== 'boton_comprar');
+    const soloImagenes = landing.items.filter(it => it.tipo !== 'boton_comprar' && it.tipo !== 'resenas');
     for(let i=0; i<soloImagenes.length; i++){
       const item = soloImagenes[i];
       btnEl.textContent = `⏳ ${i+1}/${soloImagenes.length}…`;
@@ -6282,6 +6957,35 @@ function realVerLandingCompleta(landing){
     };
   }
   wireBotonFlotanteCard();
+
+  // Tarjeta "Agregar Sección de Reseñas" (Testimonios en modo Personalizada):
+  // agrega/quita un único marcador "resenas" al FINAL de la secuencia (no
+  // tiene un "+" puntual como el botón de comprar — no hace falta elegir
+  // posición porque solo puede haber una por landing). La tarjeta misma se
+  // repinta entera cada vez que cambia algo en Testimonios (ver
+  // guardarResenasProducto en el panel de Testimonios), así que también hay
+  // que exponer esta función para que ese panel la pueda llamar.
+  function repintarResenasCard(){
+    overlay.querySelector('#realResenasCardWrap').innerHTML = realResenasCardHtml(landing, st);
+    wireResenasCard();
+  }
+  function wireResenasCard(){
+    const btn = overlay.querySelector('#realBtnResenasCard');
+    if(!btn) return;
+    btn.onclick = ()=>{
+      const yaEsta = landing.items.some(it => it.tipo === 'resenas');
+      if(yaEsta){
+        landing.items = landing.items.filter(it => it.tipo !== 'resenas');
+      } else {
+        landing.items = [...landing.items, { tipo: 'resenas', id: 'resenas-' + Date.now().toString(36) }];
+      }
+      seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+      repintarResenasCard();
+      apiActualizarLanding(landing, { items: landing.items });
+    };
+  }
+  wireResenasCard();
+  overlay._repintarResenasCard = repintarResenasCard; // el panel de Testimonios lo usa si esta landing está abierta
 
   // Tarjeta "Agregar Barra de Movimiento": repinta la barra en el teléfono y
   // la propia tarjeta, y sincroniza el cambio al backend.
@@ -6410,17 +7114,31 @@ async function enviarLandingAShopify(landing, btnEl){
   btnEl.disabled = true;
   btnEl.textContent = '⏳ Enviando a Shopify…';
   try{
-    const secuencia = landing.items.map(item => item.tipo === 'boton_comprar'
-      ? { tipo: 'boton_comprar', texto: item.texto || undefined, color: item.color || undefined, colorTexto: item.colorTexto || undefined }
-      : { tipo: 'imagen', url: item.image });
+    const st = getState(currentProduct);
+    // Pedido 11/09: sección "Testimonios" en modo Personalizada — un item
+    // "resenas" es solo un marcador de posición (como "boton_comprar", no
+    // tiene foto propia), así que hay que excluirlo tanto de "imagenes"
+    // (donde antes se asumía que "todo lo que no es botón, es imagen") como
+    // de la lista que arma "secuencia".
+    const secuencia = landing.items.map(item => {
+      if(item.tipo === 'boton_comprar') return { tipo: 'boton_comprar', texto: item.texto || undefined, color: item.color || undefined, colorTexto: item.colorTexto || undefined };
+      if(item.tipo === 'resenas') return { tipo: 'resenas' };
+      return { tipo: 'imagen', url: item.image };
+    });
+    // Las reseñas reales son del PRODUCTO (se suben una sola vez y se
+    // reutilizan en cualquier landing de ese producto) — solo se mandan si
+    // esta landing puntual tiene el marcador "resenas" insertado en su
+    // secuencia Y el producto está en modo Personalizada.
+    const incluyeResenas = st.testimoniosModo === 'personalizada' && landing.items.some(item => item.tipo === 'resenas');
     const resp = await apiFetch(BACKEND_URL + '/shopify/publicar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nombreProducto: currentProduct,
         landingNum: landing.num,
-        imagenes: landing.items.filter(item => item.tipo !== 'boton_comprar').map(item => item.image),
+        imagenes: landing.items.filter(item => item.tipo !== 'boton_comprar' && item.tipo !== 'resenas').map(item => item.image),
         secuencia,
+        resenas: incluyeResenas ? (st.resenas || []) : undefined,
         botonFlotante: !!landing.botonFlotante,
         botonFlotanteTexto: landing.botonFlotanteTexto || undefined,
         botonFlotanteColor: landing.botonFlotanteColor || undefined,
@@ -7969,10 +8687,15 @@ async function cargarFotosProductoDesdeBackend(){
       const nombreProducto = fila.nombre_producto;
       if(!nombreProducto) return;
       const fotos = fila.fotos_producto_json;
-      if(!Array.isArray(fotos) || !fotos.some(f=>f)) return;
+      const tieneResenas = Array.isArray(fila.resenas_json) && fila.resenas_json.length > 0;
+      if((!Array.isArray(fotos) || !fotos.some(f=>f)) && !tieneResenas && !fila.testimonios_modo) return;
       if(!PRODUCTS.includes(nombreProducto)) PRODUCTS.push(nombreProducto);
       const st = getState(nombreProducto);
-      st.fotosProducto = [0,1,2].map(i=> fotos[i] || null);
+      if(Array.isArray(fotos) && fotos.some(f=>f)) st.fotosProducto = [0,1,2].map(i=> fotos[i] || null);
+      // Pedido 11/09: sección "Testimonios" en modo Personalizada — reseñas
+      // reales del producto (ver productos.service.ts, guardarResenas).
+      st.testimoniosModo = fila.testimonios_modo || 'plantilla';
+      st.resenas = Array.isArray(fila.resenas_json) ? fila.resenas_json : [];
     });
   }catch(err){
     console.error('No se pudieron cargar las fotos de producto guardadas:', err);
