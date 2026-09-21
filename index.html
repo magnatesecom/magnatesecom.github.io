@@ -1050,6 +1050,19 @@
      mostrar/ocultar esto, el ojito de mostrar/ocultar contraseña, y entrar
      al taller. -->
 <div id="authGate" class="auth-gate">
+  <script>
+    // Si el link con el que se abrió la página trae "?pase=..." (inicio de
+    // sesión único desde MEC Control, ver intentarEntrarConPaseSso() más
+    // abajo en el archivo), escondemos este cartel de login DE UNA, antes de
+    // que el navegador llegue a dibujarlo en pantalla — así no se alcanza a
+    // ver ni un parpadeo del login antes de entrar directo al taller. Si el
+    // pase resulta inválido o venció, intentarEntrarConPaseSso() ya se
+    // encarga de volver a mostrarlo llamando a mostrarAuthGate().
+    if (/[?&]pase=/.test(location.search)) {
+      document.currentScript.parentElement.style.display = 'none';
+    }
+  </script>
+
   <div class="auth-card">
     <img id="authLogo" class="auth-logo" alt="Ecom Magnates">
     <h3 class="auth-title" id="authTitle">Iniciar sesión</h3>
