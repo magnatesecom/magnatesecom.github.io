@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Magnates Ecom</title>
+<title>Ecom Magnates</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -193,17 +193,6 @@
     z-index:2; line-height:1; padding:0; transition:background .15s ease, border-color .15s ease;
   }
   .product-card-delete:hover{ background:#c0392b; border-color:#c0392b; }
-  /* Botón de borrar en la tarjeta de "Mis Landings" (pedido 16/09) — mismo
-     look que .product-card-delete de arriba, pero posicionado sobre el
-     teléfono de cada landing en vez de sobre la miniatura del producto. */
-  .mislandings-phone-wrap{ position:relative; }
-  .mislandings-delete{
-    position:absolute; top:7px; right:7px; width:27px; height:27px; border-radius:50%;
-    background:rgba(10,15,25,0.55); border:1px solid rgba(255,255,255,0.28); color:#fff;
-    font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer;
-    z-index:2; line-height:1; padding:0; transition:background .15s ease, border-color .15s ease;
-  }
-  .mislandings-delete:hover{ background:#c0392b; border-color:#c0392b; }
   .product-card.add-new{
     border-style:dashed; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px;
     min-height:140px; color:var(--text-dim); background:transparent;
@@ -909,6 +898,18 @@
   .price-table th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dimmer); font-weight:700; padding-bottom:8px; }
   .price-table td{ padding:5px 8px 5px 0; font-size:12.5px; color:var(--text-dim); vertical-align:middle; }
   .price-table input{ width:100%; }
+  /* Tabla de precios del módulo Product Marker (pedido 18/09) — MISMO look
+     que .price-table de la Ficha Técnica de arriba, pero con su propia clase
+     a propósito: .price-table ya se usa en dos lugares del código (reseteo
+     global del formulario al crear un producto nuevo, y composeOferta, un
+     compositor viejo sin usar que agarra querySelectorAll('.price-table
+     input') POR ÍNDICE, no por id) — compartir la clase acá haría que ambos
+     lugares también tocaran, sin querer, los precios que el estudiante
+     cargó en Product Marker. */
+  .pm-price-table{ width:100%; border-collapse:collapse; margin-bottom:6px; }
+  .pm-price-table th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dimmer); font-weight:700; padding-bottom:8px; }
+  .pm-price-table td{ padding:5px 8px 5px 0; font-size:12.5px; color:var(--text-dim); vertical-align:middle; }
+  .pm-price-table input{ width:100%; }
 
   .btn-generate-big{
     width:100%; background:linear-gradient(90deg, var(--coral), var(--mustard)); color:#1c1408; font-weight:700; font-size:14px;
@@ -1142,6 +1143,7 @@
       <li class="nav-item" id="navLanding"><span class="ico">🗂</span> Generador de Landing <span class="arrow">▸</span></li>
       <li class="nav-item" id="navMisLandings"><span class="ico">📱</span> Mis Landings</li>
       <li class="nav-item" id="navIntegraciones"><span class="ico">🔗</span> Integraciones</li>
+      <li class="nav-item" id="navProductMarker"><span class="ico">🏷️</span> Product Marker</li>
     </ul>
 
     <div class="credits-box">
@@ -1426,6 +1428,101 @@
       </div>
     </div>
 
+    <!-- VIEW: PRODUCT MARKER (pedido 17/09) — pegar el link de un producto de
+         una tienda conocida y armar la landing completa sola, sin necesitar
+         la extensión de navegador ni tener la página abierta. El trabajo
+         pesado corre en el servidor (POST /por-link arranca, GET /estado/:id
+         se consulta cada pocos segundos) — ver pmIniciarPolling() más abajo:
+         si el estudiante cierra la pestaña y vuelve, retoma solo gracias al
+         id guardado en localStorage (pmObtenerTrabajoGuardado). -->
+    <div class="content" id="view-productmarker" style="display:none;">
+      <div class="home-header-row">
+        <div>
+          <h2 class="home-title">Product Marker</h2>
+          <p class="home-sub">Pegá el link de un producto de una tienda conocida y armamos tu landing completa sola, con reseñas reales cuando la página las traiga.</p>
+        </div>
+      </div>
+
+      <div class="intro-card" style="max-width:640px;">
+        <div class="intro-head" style="align-items:center;">
+          <div class="intro-icon">🏷️</div>
+          <div style="flex:1; min-width:0;">
+            <h3>Importar producto por link</h3>
+            <p>Por ahora: AliExpress, Amazon y Temu. Cuando agreguemos más tiendas conocidas, van a funcionar igual acá.</p>
+          </div>
+        </div>
+
+        <!-- Estado 1: formulario para pegar el link -->
+        <div id="pmFormWrap">
+          <div id="pmError" class="auth-error" style="display:none;"></div>
+          <label class="auth-label">Link del producto</label>
+          <input type="url" class="auth-input" id="pmLink" placeholder="Link de AliExpress, Amazon o Temu" autocomplete="off" style="padding-left:14px; margin-bottom:20px;">
+
+          <label class="auth-label">Título personalizado (opcional)</label>
+          <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 6px 0;">Si lo dejás vacío, se usa el título tal como viene en la página de origen (suele traer palabras de SEO de más — acá podés dejarlo más corto y claro).</p>
+          <input type="text" class="auth-input" id="pmTitulo" placeholder="Ej: Masajeador de cuello inalámbrico" autocomplete="off" style="padding-left:14px; margin-bottom:20px;">
+
+          <!-- Pedido 18/09: antes el precio de venta salía siempre automático
+               (costo de origen × margen, 1 sola unidad, sin comparación —
+               ver MARKUP en importar-producto.service.ts). Ahora el
+               estudiante puede completar acá el precio real de venta y de
+               comparación de cada combo (1/2/3 unidades) — si deja todo
+               vacío, se sigue comportando exactamente como antes. -->
+          <label class="auth-label">Precios (opcional)</label>
+          <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 6px 0;">Si dejás esto vacío, se sugiere un precio automático para 1 unidad (sin comparación). Completalo para definir vos los 3 combos, igual que en la Ficha Técnica manual.</p>
+          <table class="pm-price-table">
+            <tr><th></th><th>Precio de venta</th><th>Precio de comparación</th></tr>
+            <tr><td>1 unidad</td><td><input type="text" class="auth-input" id="pmPrecio1Venta" placeholder="0" style="padding-left:10px;"></td><td><input type="text" class="auth-input" id="pmPrecio1Comparacion" placeholder="—" style="padding-left:10px;"></td></tr>
+            <tr><td>2 unidades</td><td><input type="text" class="auth-input" id="pmPrecio2Venta" placeholder="0" style="padding-left:10px;"></td><td><input type="text" class="auth-input" id="pmPrecio2Comparacion" placeholder="—" style="padding-left:10px;"></td></tr>
+            <tr><td>3 unidades</td><td><input type="text" class="auth-input" id="pmPrecio3Venta" placeholder="0" style="padding-left:10px;"></td><td><input type="text" class="auth-input" id="pmPrecio3Comparacion" placeholder="—" style="padding-left:10px;"></td></tr>
+          </table>
+          <div style="margin-bottom:8px;"></div>
+
+          <button type="button" class="btn btn-coral" id="pmImportarBtn">Importar producto</button>
+        </div>
+
+        <!-- Estado 2: trabajo en curso — se muestra tanto justo después de
+             tocar "Importar producto" como al volver a esta pantalla (o
+             recargar la página) mientras un trabajo sigue en curso en el
+             servidor. -->
+        <div id="pmEnCurso" style="display:none;">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+            <div class="progress-track" style="width:100%;"><div class="progress-fill" id="pmProgressFill"></div></div>
+          </div>
+          <p id="pmEstadoTexto" style="font-size:12.5px; color:var(--text-dim); line-height:1.5; margin:0 0 4px;"></p>
+          <p style="font-size:11.5px; color:var(--text-dim); opacity:0.8; line-height:1.5; margin:0 0 18px;">Podés navegar a otra pantalla o cerrar esta pestaña — se sigue armando en el servidor y retoma solo cuando volvés.</p>
+          <button type="button" class="btn btn-ghost" id="pmCancelarBtn">Importar otro link</button>
+        </div>
+
+        <!-- Estado 2.5 (pedido 18/09): el link trajo reseñas reales de la
+             página de origen — antes de generar la landing (que es la parte
+             pesada/lenta), se le muestran al estudiante para que sepa que
+             son reales y no inventadas por IA. Las que vinieron sin nombre
+             ("Anónimo", como casi siempre pasa en AliExpress) se pueden
+             renombrar acá; las que ya traen un nombre real se muestran tal
+             cual, sin poder editarlas. Ver 'revisando_resenas' en
+             importar-producto.service.ts / pmMostrarRevisionResenas() más
+             abajo. -->
+        <div id="pmRevisando" style="display:none;">
+          <p style="font-size:12.5px; color:var(--text-dim); line-height:1.6; margin:0 0 14px;">Encontramos estas reseñas reales en la página de origen. Las que dicen <b>"Anónimo"</b> las podés renombrar antes de crear la landing — las que ya traen un nombre real quedan tal cual.</p>
+          <div id="pmResenasLista" style="display:flex; flex-direction:column; gap:14px; margin-bottom:16px; max-height:460px; overflow-y:auto; padding-right:4px;"></div>
+          <div id="pmResenasError" class="auth-error" style="display:none;"></div>
+          <button type="button" class="btn btn-coral" id="pmConfirmarResenasBtn">Continuar y generar la landing</button>
+          <button type="button" class="btn btn-ghost" id="pmCancelarResenasBtn" style="margin-top:8px;">Importar otro link</button>
+        </div>
+
+        <!-- Estado 3: listo -->
+        <div id="pmListo" style="display:none;">
+          <div style="width:100%; background:rgba(75,143,99,0.14); border:1px solid rgba(75,143,99,0.4); color:#8fd6a7; border-radius:8px; padding:14px 16px; font-size:12.5px; line-height:1.6; margin-bottom:16px; box-sizing:border-box;">
+            <b>✓ Landing lista:</b> <span id="pmListoNombre"></span><br>
+            <span id="pmListoDetalle"></span>
+          </div>
+          <button type="button" class="btn btn-coral" id="pmVerLandingsBtn">Ver en Mis Landings</button>
+          <button type="button" class="btn btn-ghost" id="pmImportarOtroBtn" style="margin-top:8px;">Importar otro producto</button>
+        </div>
+      </div>
+    </div>
+
     <!-- VIEW: WORKSPACE (producto) -->
     <div class="content" id="view-workspace" style="display:none;">
 
@@ -1465,7 +1562,7 @@
             <div class="plantilla-tile" id="plantillaTile">
               <div class="ico-circle">🖼</div>
               <b>Seleccionar Plantilla</b>
-              <span class="sub">de la Galería EcomMagic</span>
+              <span class="sub">de la Galería Ecom Magnates</span>
             </div>
             <label class="imgslot-tile" id="imgSlot1">
               <span class="plus">+</span><span>Imagen 1</span>
@@ -2366,7 +2463,7 @@ let currentView = 'home'; // 'home' | 'workspace' | 'mislandings'
 // per-product state
 const state = {};
 function getState(p){
-  if(!state[p]) state[p] = { templateSelections:{}, gallery:[], creditsUsed:0, assembled:[], realAssembleMode:false, realAssembleOrder:[], realAssembledLandings:[], masivaActiva:false, fotosProducto:[null,null,null] };
+  if(!state[p]) state[p] = { templateSelections:{}, gallery:[], creditsUsed:0, assembled:[], realAssembleMode:false, realAssembleOrder:[], realAssembledLandings:[], masivaActiva:false, fotosProducto:[null,null,null], testimoniosModo:'plantilla', resenas:[] };
   return state[p];
 }
 
@@ -2382,16 +2479,19 @@ function goToView(view){
   document.getElementById('view-admin').style.display = view==='admin' ? 'block' : 'none';
   document.getElementById('view-perfil').style.display = view==='perfil' ? 'block' : 'none';
   document.getElementById('view-integraciones').style.display = view==='integraciones' ? 'block' : 'none';
+  document.getElementById('view-productmarker').style.display = view==='productmarker' ? 'block' : 'none';
   document.getElementById('view-workspace').style.display = view==='workspace' ? 'block' : 'none';
   document.getElementById('navLanding').classList.toggle('active', view==='home' || view==='workspace');
   document.getElementById('navMisLandings').classList.toggle('active', view==='mislandings');
   document.getElementById('navIntegraciones').classList.toggle('active', view==='integraciones');
+  document.getElementById('navProductMarker').classList.toggle('active', view==='productmarker');
   renderAll();
 }
 
 document.getElementById('navLanding').onclick = ()=> goToView('home');
 document.getElementById('navMisLandings').onclick = ()=> goToView('mislandings');
 document.getElementById('navIntegraciones').onclick = ()=> goToView('integraciones');
+document.getElementById('navProductMarker').onclick = ()=> goToView('productmarker');
 document.getElementById('backToHome').onclick = ()=> goToView('home');
 document.getElementById('sidebarToggle').onclick = ()=>{
   document.getElementById('sidebar').style.display =
@@ -2617,8 +2717,7 @@ function renderMisLandings(){
       return `
       <div class="mislandings-card" style="display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer;" data-product="${product}" data-landingid="${landing.id}">
         <div style="font-family:'Fraunces'; font-weight:600; font-size:14px; color:var(--paper);">Landing #${numero}</div>
-        <div class="phone mislandings-phone-wrap">
-          <button type="button" class="mislandings-delete" title="Eliminar landing">🗑</button>
+        <div class="phone">
           <div class="phone-screen">
             <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; font-size:9px; font-weight:700; color:rgba(28,39,51,0.75); background:#f5f1e4;">
               <span>4:16</span><span>Powered by <span style="color:var(--coral);">Ecom Magnates</span></span>
@@ -2635,39 +2734,13 @@ function renderMisLandings(){
     }).join('')}
   </div>`;
   body.querySelectorAll('.mislandings-card').forEach(card=>{
-    const product = card.dataset.product;
     card.onclick = ()=>{
+      const product = card.dataset.product;
       const landing = getState(product).realAssembledLandings.find(l=> String(l.id) === card.dataset.landingid);
       if(!landing) return;
       currentProduct = product; // realVerLandingCompleta() y sus botones (Shopify, eliminar) usan el producto actual
       realVerLandingCompleta(landing);
     };
-    // Botón de borrar directo desde la tarjeta (pedido 16/09) — sin tener que
-    // entrar primero al visor completo de la landing.
-    card.querySelector('.mislandings-delete').onclick = (e)=>{
-      e.stopPropagation(); // que el clic en la basura no abra el visor de la landing
-      const landing = getState(product).realAssembledLandings.find(l=> String(l.id) === card.dataset.landingid);
-      if(!landing) return;
-      confirmarEliminarLandingIndividual(product, landing);
-    };
-  });
-}
-
-// Borra UNA landing puntual (no todo el producto) — la usan tanto la
-// tarjeta de "Mis Landings" como cualquier otro lugar que en el futuro
-// quiera ofrecer el mismo borrado puntual con confirmación.
-function confirmarEliminarLandingIndividual(product, landing){
-  const numero = landing.dbId || landing.num;
-  mostrarConfirmacion({
-    titulo: 'Eliminar landing',
-    mensaje: `¿Seguro que deseas eliminar <b>Landing #${numero}</b> de "${product}"? Esto no borra las piezas/imágenes generadas ni el resto de las landings de este producto, solo esta landing ensamblada. Esta acción no se puede deshacer.`,
-    onConfirm: ()=>{
-      const st = getState(product);
-      st.realAssembledLandings = st.realAssembledLandings.filter(l=> l.id !== landing.id);
-      if(currentView === 'mislandings') renderMisLandings();
-      if(currentProduct === product) renderRealAssembledLandings();
-      apiEliminarLanding(landing);
-    },
   });
 }
 
@@ -3243,6 +3316,357 @@ document.getElementById('integFalDesconectarBtn').onclick = desconectarFal;
   });
 });
 
+// ---------------- PRODUCT MARKER (pedido 17/09) ----------------
+// Pegar el link de un producto de una tienda conocida y armar la landing
+// completa sola, DESDE el propio taller (antes hacía falta la extensión de
+// navegador — ver product-marker-extension/, que sigue funcionando aparte
+// pero ya no es el único camino). El backend (importar-producto.service.ts,
+// POST /por-link) arranca el trabajo pesado (leer la página + generar las
+// secciones con IA, 1-3 minutos) en segundo plano y devuelve un id al toque;
+// acá se consulta GET /estado/:id cada pocos segundos (polling) para
+// actualizar la barra de progreso.
+//
+// Pedido explícito de Norbey (17/09): que se vea la barra de progreso
+// mientras el estudiante se queda mirando, PERO que si sale de la pantalla o
+// cierra la pestaña, el trabajo siga igual en el servidor. Como el trabajo
+// real corre del lado del servidor sin depender de nadie mirando, lo único
+// que hace falta acá es (a) guardar el id del trabajo en curso en
+// localStorage apenas se crea, y (b) al volver a abrir el taller, si hay un
+// id guardado, retomar el polling solo — así el estudiante ve la barra
+// seguir donde iba en vez de tener que adivinar si terminó o no.
+
+// Mismos patrones que PATRONES_PLATAFORMA_SOPORTADA en importar-producto.service.ts
+// (18/09 (2), se sumaron Amazon y Temu) — se repiten acá SOLO para avisarle
+// al estudiante al toque, sin esperar la ida y vuelta al servidor. El
+// backend manda la última palabra igual (si algún día se desincronizan, lo
+// peor que pasa es un aviso de "no soportada" de más o de menos acá, nunca
+// una importación rota).
+const PM_PATRONES_TIENDA_SOPORTADA = [
+  /^https:\/\/([a-z]{2,3}\.)?aliexpress\.com\/item\//i,
+  /^https:\/\/(?:www\.)?amazon\.[a-z.]{2,8}\/(?:[^/?#]+\/)*(?:dp|gp\/product)\/[A-Z0-9]{10}(?:[/?]|$)/i,
+  /^https:\/\/(?:www\.)?amzn\.to\//i,
+  /^https:\/\/(?:www\.)?temu\.com\/(?:[a-z]{2}\/)?(?:[^/?#]+-g-\d+\.html|goods\.html)/i,
+];
+function pmLinkEsDeTiendaSoportada(link){
+  return PM_PATRONES_TIENDA_SOPORTADA.some(regex => regex.test(link));
+}
+const PM_JOB_KEY = 'pmTrabajoActivoV1';
+const PM_POLL_MS = 3500;
+
+let pmPollTimer = null;
+let pmVistaEstado = 'form'; // 'form' | 'curso' | 'revisando' | 'listo'
+let pmUltimoResultado = null;
+// Id del trabajo cuyas reseñas se están mostrando en #pmRevisando ahora
+// mismo (pedido 18/09) — lo necesita pmConfirmarResenasBtn para saber a
+// qué importación mandarle los nombres editados.
+let pmIdEnRevision = null;
+
+function pmGuardarTrabajo(job){
+  try{ localStorage.setItem(PM_JOB_KEY, JSON.stringify(job)); }catch{}
+}
+function pmLeerTrabajoGuardado(){
+  try{ const raw = localStorage.getItem(PM_JOB_KEY); return raw ? JSON.parse(raw) : null; }catch{ return null; }
+}
+function pmBorrarTrabajoGuardado(){
+  try{ localStorage.removeItem(PM_JOB_KEY); }catch{}
+}
+
+// Solo cambia qué bloque de la tarjeta se ve — no toca el trabajo en curso
+// ni el polling, así sirve tanto para actualizar mientras la pantalla está
+// abierta como para redibujar al volver a entrar a esta vista.
+function pmMostrarEstado(estado){
+  pmVistaEstado = estado;
+  document.getElementById('pmFormWrap').style.display = estado === 'form' ? 'block' : 'none';
+  document.getElementById('pmEnCurso').style.display = estado === 'curso' ? 'block' : 'none';
+  document.getElementById('pmRevisando').style.display = estado === 'revisando' ? 'block' : 'none';
+  document.getElementById('pmListo').style.display = estado === 'listo' ? 'block' : 'none';
+}
+
+// Escapa texto que viene de la página de origen (reseñas reales) antes de
+// meterlo en innerHTML — no es contenido que el estudiante escribió, así
+// que no hay que confiar en que no traiga cosas raras (< > & etc.).
+function pmEscHtml(texto){
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+function pmEstrellasHtml(calificacion){
+  const n = Math.max(0, Math.min(5, Math.round(calificacion ?? 5)));
+  return `<span style="color:#f0b90b; font-size:12px;">${'★'.repeat(n)}${'☆'.repeat(5-n)}</span>`;
+}
+
+function renderProductMarker(){
+  pmMostrarEstado(pmVistaEstado);
+}
+
+function pmDetenerPolling(){
+  if(pmPollTimer){ clearInterval(pmPollTimer); pmPollTimer = null; }
+}
+
+function pmIniciarPolling(id){
+  pmDetenerPolling();
+  pmConsultarEstado(id);
+  pmPollTimer = setInterval(()=> pmConsultarEstado(id), PM_POLL_MS);
+}
+
+async function pmConsultarEstado(id){
+  let resp;
+  try{
+    resp = await apiFetch(BACKEND_URL + '/importar-producto/estado/' + encodeURIComponent(id));
+  }catch(err){
+    // Error de red pasajero (wifi, etc.) — no se da por vencido ni se borra
+    // el trabajo guardado, simplemente reintenta en el próximo tick.
+    console.warn('Product Marker: no se pudo consultar el estado (reintentando):', err);
+    return;
+  }
+  if(resp.status === 404){
+    pmDetenerPolling();
+    pmBorrarTrabajoGuardado();
+    pmMostrarErrorForm('No se encontró esa importación — puede que el servidor se haya reiniciado mientras se armaba. Probá de nuevo.');
+    return;
+  }
+  const data = await resp.json().catch(()=> ({}));
+  if(!resp.ok){
+    pmDetenerPolling();
+    pmBorrarTrabajoGuardado();
+    pmMostrarErrorForm(data?.message || 'No se pudo consultar el estado de la importación.');
+    return;
+  }
+  if(data.estado === 'leyendo_pagina'){
+    document.getElementById('pmProgressFill').style.width = '30%';
+    document.getElementById('pmEstadoTexto').textContent = 'Leyendo la página del producto...';
+  } else if(data.estado === 'revisando_resenas'){
+    // Pedido 18/09: encontró reseñas reales — se PAUSA acá (no sigue
+    // sonando el polling, para no pisarle al estudiante lo que va
+    // escribiendo en los campos de nombre) hasta que confirme con
+    // pmConfirmarResenasBtn más abajo.
+    pmDetenerPolling();
+    pmMostrarRevisionResenas(id, Array.isArray(data.resenasParaRevisar) ? data.resenasParaRevisar : []);
+  } else if(data.estado === 'generando_secciones'){
+    document.getElementById('pmProgressFill').style.width = '75%';
+    document.getElementById('pmEstadoTexto').textContent = 'Generando las secciones de tu landing con IA (puede tardar 1 a 3 minutos)...';
+  } else if(data.estado === 'listo'){
+    pmDetenerPolling();
+    pmBorrarTrabajoGuardado();
+    document.getElementById('pmProgressFill').style.width = '100%';
+    pmMostrarListo(data.resultado);
+    // Refresca el historial/galería/landings guardadas desde el backend para
+    // que el producto recién importado aparezca en "Mis Landings" (y en el
+    // Generador de Landing) sin tener que recargar la página a mano.
+    if(typeof inicializarDesdeBackend === 'function') inicializarDesdeBackend();
+  } else if(data.estado === 'error'){
+    pmDetenerPolling();
+    pmBorrarTrabajoGuardado();
+    pmMostrarErrorForm(data.error || 'No se pudo importar el producto.');
+  }
+}
+
+function pmMostrarErrorForm(mensaje){
+  pmMostrarEstado('form');
+  const err = document.getElementById('pmError');
+  err.textContent = mensaje;
+  err.style.display = 'block';
+}
+
+function pmMostrarListo(resultado){
+  pmUltimoResultado = resultado || {};
+  document.getElementById('pmListoNombre').textContent = pmUltimoResultado.nombreProducto || 'tu producto';
+  const secciones = Array.isArray(pmUltimoResultado.secciones) ? pmUltimoResultado.secciones.length : 0;
+  const partes = [`${secciones} secciones generadas`];
+  if(pmUltimoResultado.precioSugerido) partes.push(`precio sugerido ${pmUltimoResultado.precioSugerido}`);
+  document.getElementById('pmListoDetalle').textContent = partes.join(' · ');
+  pmMostrarEstado('listo');
+}
+
+// Pedido 18/09: arma la pantalla de revisión de reseñas — una tarjeta por
+// cada reseña real que trajo la página de origen, con sus fotos (si trae)
+// debajo del texto, y un campo para renombrar SOLO las que vinieron
+// "Anónimo" (las que ya traen nombre real se muestran fijas, sin input).
+function pmMostrarRevisionResenas(id, resenas){
+  pmIdEnRevision = id;
+  const errBox = document.getElementById('pmResenasError');
+  errBox.style.display = 'none';
+  const cont = document.getElementById('pmResenasLista');
+  cont.innerHTML = resenas.map((r, i) => {
+    const fotos = Array.isArray(r.fotos) ? r.fotos.slice(0, 4) : [];
+    const restantes = (Array.isArray(r.fotos) ? r.fotos.length : 0) - fotos.length;
+    const fotosHtml = fotos.length ? `
+      <div style="display:flex; gap:8px; margin:10px 0;">
+        ${fotos.map((url, j) => `
+          <div style="position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; flex-shrink:0; background:#ece6d6;">
+            <img src="${pmEscHtml(url)}" style="width:100%; height:100%; object-fit:cover; display:block;" loading="lazy">
+            ${(j === fotos.length - 1 && restantes > 0) ? `<div style="position:absolute; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:700;">+${restantes}</div>` : ''}
+          </div>`).join('')}
+      </div>` : '';
+    const autorHtml = r.esAnonimo
+      ? `<div style="margin-top:8px;">
+           <label class="auth-label" style="font-size:11px; margin-bottom:4px;">Nombre a mostrar (vino como "Anónimo")</label>
+           <input type="text" class="auth-input" id="pmAutorResena_${i}" placeholder="Anónimo" value="" style="padding-left:10px; font-size:12.5px; height:36px;">
+         </div>`
+      : `<div style="margin-top:8px; font-size:11.5px; color:var(--text-dim);">Autor: <b style="color:#1c1810;">${pmEscHtml(r.autor || 'Anónimo')}</b></div>`;
+    return `<div class="pm-resena-card" style="border:1px solid #ece6d6; border-radius:10px; padding:14px 16px; background:#f9f6ec;">
+        ${pmEstrellasHtml(r.calificacion)}
+        <p style="font-size:12.5px; color:#1c1810; line-height:1.55; margin:8px 0 0; white-space:pre-wrap;">${pmEscHtml(r.texto || '')}</p>
+        ${fotosHtml}
+        ${autorHtml}
+      </div>`;
+  }).join('');
+  document.getElementById('pmEstadoTexto').textContent = '';
+  pmMostrarEstado('revisando');
+}
+
+// Manda a /resenas/:id/confirmar los nombres editados (en el mismo orden en
+// que se mostraron) y retoma el polling — recién ahí el servidor arranca la
+// parte pesada (generar las secciones con IA).
+async function pmConfirmarResenas(){
+  const id = pmIdEnRevision;
+  if(!id) return;
+  const cards = document.querySelectorAll('#pmResenasLista .pm-resena-card');
+  const autores = Array.from(cards).map((_, i) => {
+    const input = document.getElementById('pmAutorResena_' + i);
+    if(!input) return undefined; // no era anónima, no había campo para editar
+    const val = input.value.trim();
+    return val ? val : undefined; // vacío = dejar tal cual vino (incluido "Anónimo")
+  });
+  const btn = document.getElementById('pmConfirmarResenasBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+  const errBox = document.getElementById('pmResenasError');
+  errBox.style.display = 'none';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/importar-producto/resenas/' + encodeURIComponent(id) + '/confirmar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autores }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudieron confirmar las reseñas.');
+    }
+    pmIdEnRevision = null;
+    document.getElementById('pmProgressFill').style.width = '75%';
+    document.getElementById('pmEstadoTexto').textContent = 'Generando las secciones de tu landing con IA (puede tardar 1 a 3 minutos)...';
+    pmMostrarEstado('curso');
+    pmIniciarPolling(id);
+  }catch(e){
+    errBox.textContent = e?.message || 'No se pudieron confirmar las reseñas.';
+    errBox.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function pmIniciarImportacion(){
+  const link = document.getElementById('pmLink').value.trim();
+  const err = document.getElementById('pmError');
+  err.style.display = 'none';
+  if(!link){
+    err.textContent = 'Pegá el link del producto.';
+    err.style.display = 'block';
+    return;
+  }
+  if(!pmLinkEsDeTiendaSoportada(link)){
+    err.textContent = 'Ese link no es de una tienda soportada todavía (por ahora: AliExpress, Amazon o Temu). Pegá el link de la página del producto.';
+    err.style.display = 'block';
+    return;
+  }
+  // Título/precios manuales (pedido 18/09) — todos opcionales, se mandan tal
+  // cual el estudiante los escribió; si los deja vacíos el backend sigue
+  // sugiriendo el precio automático de siempre (ver ofertaManual en
+  // importar-producto.service.ts).
+  const val = id => document.getElementById(id).value.trim();
+  const tituloPersonalizado = val('pmTitulo');
+  const precios = {
+    precio1Venta: val('pmPrecio1Venta'), precio1Comparacion: val('pmPrecio1Comparacion'),
+    precio2Venta: val('pmPrecio2Venta'), precio2Comparacion: val('pmPrecio2Comparacion'),
+    precio3Venta: val('pmPrecio3Venta'), precio3Comparacion: val('pmPrecio3Comparacion'),
+  };
+  const btn = document.getElementById('pmImportarBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/importar-producto/por-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: link, tituloPersonalizado, ...precios }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudo importar el producto.');
+    }
+    pmGuardarTrabajo({ id: data.id, url: link });
+    document.getElementById('pmProgressFill').style.width = '10%';
+    document.getElementById('pmEstadoTexto').textContent = 'Arrancando...';
+    pmMostrarEstado('curso');
+    pmIniciarPolling(data.id);
+  }catch(e){
+    err.textContent = e?.message || 'No se pudo importar el producto.';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+// Si hay un trabajo guardado de una sesión anterior (la pestaña se cerró o
+// se navegó a otro lado mientras se armaba), lo retoma solo — el trabajo
+// real nunca dependió de que esta pantalla siguiera abierta, esto solo
+// vuelve a mostrar en qué va.
+function pmResumirSiHayTrabajoPendiente(){
+  const guardado = pmLeerTrabajoGuardado();
+  if(guardado && guardado.id){
+    document.getElementById('pmLink').value = guardado.url || '';
+    document.getElementById('pmEstadoTexto').textContent = 'Retomando...';
+    document.getElementById('pmProgressFill').style.width = '10%';
+    pmMostrarEstado('curso');
+    pmIniciarPolling(guardado.id);
+  }
+}
+
+// Limpia el link, el título personalizado y la tabla de precios manual —
+// usada tanto al arrancar de cero como al terminar una importación.
+function pmLimpiarFormulario(){
+  ['pmLink','pmTitulo','pmPrecio1Venta','pmPrecio1Comparacion','pmPrecio2Venta','pmPrecio2Comparacion','pmPrecio3Venta','pmPrecio3Comparacion'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+}
+
+document.getElementById('pmImportarBtn').onclick = pmIniciarImportacion;
+document.getElementById('pmVerLandingsBtn').onclick = ()=> goToView('mislandings');
+document.getElementById('pmImportarOtroBtn').onclick = ()=>{
+  pmLimpiarFormulario();
+  pmMostrarEstado('form');
+};
+// "Importar otro link" durante un trabajo en curso: deja de MOSTRAR el
+// progreso acá (el trabajo sigue solo en el servidor y va a quedar guardado
+// en Mis Landings quieras o no), para que el estudiante pueda arrancar otra
+// importación distinta sin esperar a que termine la primera.
+document.getElementById('pmCancelarBtn').onclick = ()=>{
+  pmDetenerPolling();
+  pmBorrarTrabajoGuardado();
+  pmLimpiarFormulario();
+  pmMostrarEstado('form');
+};
+document.getElementById('pmConfirmarResenasBtn').onclick = pmConfirmarResenas;
+// Igual que "Importar otro link" durante 'curso': deja de mostrar acá, pero
+// OJO — a diferencia de 'curso', un trabajo pausado en 'revisando_resenas'
+// NO sigue solo en el servidor (está esperando la confirmación), así que si
+// el estudiante vuelve a entrar a Product Marker con el mismo link guardado
+// no lo va a encontrar. Es una decisión aceptable: mismo botón, mismo
+// comportamiento que el resto de la pantalla, y no se pierde nada real (no
+// se había generado ninguna landing todavía).
+document.getElementById('pmCancelarResenasBtn').onclick = ()=>{
+  pmDetenerPolling();
+  pmBorrarTrabajoGuardado();
+  pmIdEnRevision = null;
+  pmLimpiarFormulario();
+  pmMostrarEstado('form');
+};
+
 // ---------------- TABS ----------------
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.onclick = ()=>{
@@ -3303,6 +3727,19 @@ async function guardarFotosProductoBackend(nombreProducto){
     });
   }catch(err){ console.warn('No se pudo guardar la foto del producto en el backend:', err); }
 }
+// Pedido 11/09: sección "Testimonios" en modo Personalizada — guarda (todo el
+// arreglo de una sola vez, igual que guardarFotosProductoBackend) el modo
+// elegido y la lista completa de reseñas reales de este producto.
+async function apiGuardarResenasProducto(nombreProducto, testimoniosModo, resenas){
+  try{
+    await apiFetch(BACKEND_URL + '/productos/resenas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombreProducto, testimoniosModo, resenas }),
+    });
+  }catch(err){ console.warn('No se pudieron guardar las reseñas del producto en el backend:', err); }
+}
+
 function restaurarFotosProducto(fotos){
   if(!fotos) return;
   fotos.forEach((dataUrl, i)=>{
@@ -4392,7 +4829,12 @@ function renderTmTabs(){
   const st = getState(currentProduct);
   const tabsWrap = document.getElementById('tmTabs');
   tabsWrap.innerHTML = SECTION_TYPES.map(sec=>{
-    const tieneSeleccion = st.templateSelections[sec.key] && st.templateSelections[sec.key].size > 0;
+    // Testimonios en modo Personalizada: el punto de "ya elegido" depende de
+    // si hay reseñas reales cargadas, no de templateSelections (que en ese
+    // modo queda siempre vacío porque no se elige ninguna de las 19 plantillas).
+    const tieneSeleccion = sec.key === 'testimonios' && st.testimoniosModo === 'personalizada'
+      ? (st.resenas || []).length > 0
+      : st.templateSelections[sec.key] && st.templateSelections[sec.key].size > 0;
     return `<button class="tm-tab ${sec.key===tmActiveTab?'active':''}" data-sec="${sec.key}">${sec.label}${tieneSeleccion ? '<span class="tm-tab-dot"></span>' : ''}</button>`;
   }).join('') + `<button class="tm-tab ${tmActiveTab===TM_TAB_GUARDADAS?'active':''}" data-sec="${TM_TAB_GUARDADAS}">💾 Plantillas guardadas</button>`;
   tabsWrap.querySelectorAll('.tm-tab').forEach(btn=>{
@@ -4412,6 +4854,17 @@ function renderTmGrid(){
     return;
   }
   const sec = SECTION_TYPES.find(s=> s.key === tmActiveTab);
+  // Pedido 11/09: Testimonios en modo Personalizada — en vez de la galería
+  // de 19 plantillas (que sigue intacta en modo Plantilla), se muestra el
+  // panel para cargar reseñas reales. Corta acá mismo, antes de armar nada
+  // de la galería de plantillas.
+  if(sec.key === 'testimonios' && st.testimoniosModo === 'personalizada'){
+    document.getElementById('tmCountBadge').textContent = String((st.resenas||[]).length);
+    grid.innerHTML = resenasModoToggleHtml(st) + resenasPanelHtml(st);
+    wireResenasModoToggle(st);
+    wireResenasPanel(st);
+    return;
+  }
   const isHero = sec.key === 'hero';
   const isOferta = sec.key === 'oferta';
   const isLogistica = sec.key === 'logistica';
@@ -4523,7 +4976,8 @@ function renderTmGrid(){
               </div>
             </div>`);
   }
-  grid.innerHTML = items.join('');
+  grid.innerHTML = (sec.key === 'testimonios' ? resenasModoToggleHtml(st) : '') + items.join('');
+  if(sec.key === 'testimonios') wireResenasModoToggle(st);
 
   grid.querySelectorAll('.tm-card-outer').forEach(card=>{
     card.onclick = ()=>{
@@ -4621,6 +5075,265 @@ document.getElementById('tmUse').onclick = ()=>{
 document.getElementById('templateModal').addEventListener('click', (e)=>{
   if(e.target.id === 'templateModal') document.getElementById('tmCancel').click();
 });
+
+// Pedido 11/09: sección "Testimonios" en modo Personalizada. El estudiante
+// sube fotos y textos REALES de clientes reales, y la IA solo los adapta
+// (nunca inventa contenido) — ver adaptarResena() en text-generation.service.ts.
+// Esta parte de la UI vive en la misma pestaña "Testimonios" del modal de
+// plantillas, arriba de todo con un selector "Plantilla" / "Personalizada".
+
+function resenasModoToggleHtml(st){
+  const modo = st.testimoniosModo || 'plantilla';
+  const pill = (valor, label) => `<button type="button" class="tm-modo-resenas-btn" data-modo="${valor}" style="padding:8px 16px; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid ${modo===valor ? 'var(--coral)' : '#e4dfd0'}; background:${modo===valor ? 'var(--coral)' : 'transparent'}; color:${modo===valor ? '#1c1408' : '#6b6455'};">${label}</button>`;
+  return `
+    <div style="grid-column:1/-1; display:flex; align-items:center; gap:10px; padding:2px 4px 16px; border-bottom:1px solid #ece6d6; margin-bottom:16px;">
+      ${pill('plantilla', 'Plantilla')}
+      ${pill('personalizada', 'Personalizada')}
+      <span style="font-size:11.5px; color:#8a8270; line-height:1.4; max-width:420px;">
+        ${modo === 'personalizada'
+          ? 'Subís las fotos reales de cada reseña — la IA arma el resto (avatar, nombre, ciudad y texto) cuando toques "Generar" más abajo.'
+          : 'La IA genera una imagen de testimonios de ejemplo, igual que en el resto de las secciones.'}
+      </span>
+    </div>
+  `;
+}
+
+function wireResenasModoToggle(st){
+  document.querySelectorAll('.tm-modo-resenas-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const nuevoModo = btn.dataset.modo;
+      if(nuevoModo === st.testimoniosModo) return;
+      st.testimoniosModo = nuevoModo;
+      apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas || []);
+      renderTmGrid();
+      renderTmTabs();
+      // Elegir "Personalizada" ya cuenta como selección de esa sección (ver
+      // totalSelected) — sin este refresco, "Usar Plantilla(s)" quedaba
+      // deshabilitado hasta el próximo clic en la galería de otra sección.
+      updateTmHint();
+    };
+  });
+}
+
+function resenasListaHtml(st){
+  const resenas = st.resenas || [];
+  if(resenas.length === 0){
+    return `<div style="font-size:12px; color:#8a8270; padding:10px 0;">Todavía no cargaste ninguna reseña real.</div>`;
+  }
+  return `<div style="display:flex; flex-direction:column; gap:8px;">` + resenas.map(r => {
+    // Pedido 11/09 (versión final): la foto se sube al toque tal cual queda
+    // (nunca se toca) — pero el avatar (lo genera la IA aparte) y el
+    // nombre/ciudad/estrellas/texto recién se generan cuando se toca
+    // "Generar" (para que la IA ya tenga el país/idioma/personaje
+    // definitivos) — mientras tanto la reseña queda "pendiente" acá.
+    if(r.pendiente){
+      return `
+        <div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px dashed #e4dfd0; border-radius:10px; background:#f4f0e4;">
+          <img src="${r.fotoUrl}" alt="" style="width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0;">
+          <div style="flex:1; min-width:0; font-size:11.5px; color:#8a8270;">⏳ Pendiente — la IA genera el avatar y el texto cuando toques "Generar"</div>
+          <button type="button" data-quitar-resena="${r.id}" title="Quitar foto" style="background:none; border:none; color:#c96a6a; font-size:16px; cursor:pointer; flex-shrink:0;">×</button>
+        </div>
+      `;
+    }
+    return `
+    <div style="display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid #e4dfd0; border-radius:10px; background:#f9f6ec;">
+      ${r.avatarUrl ? `<img src="${r.avatarUrl}" alt="" style="width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0;">` : `<span style="width:34px; height:34px; border-radius:50%; background:var(--coral); color:#1c1408; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</span>`}
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:12.5px; font-weight:700; color:#1c1810;">${r.nombre || ''}${r.ciudad ? ' · ' + r.ciudad : ''} <span style="color:#f0b90b;">${'★'.repeat(r.estrellas||5)}</span></div>
+        <div style="font-size:11.5px; color:#6b6455; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.texto || ''}</div>
+      </div>
+      <button type="button" data-quitar-resena="${r.id}" title="Eliminar reseña" style="background:none; border:none; color:#c96a6a; font-size:16px; cursor:pointer; flex-shrink:0;">×</button>
+    </div>
+  `;
+  }).join('') + `</div>`;
+}
+
+// Pedido 11/09 (versión final): el estudiante sube SOLO la foto real de
+// cada reseña (puede elegir varias de una) — esa foto se publica tal cual,
+// sin que la IA la toque. El avatar (una carita generada por IA, según el
+// "Personaje" del producto) y el nombre/ciudad/estrellas/texto se generan
+// aparte, recién al tocar "Generar" (ver el handler de "generateBtn").
+// Pedido 12/09: cuadrito de miniatura por cada foto real ya subida (esté
+// "pendiente" o ya lista) — solo la foto, sin nombre/avatar/texto (eso sigue
+// sin aparecer acá, según lo pedido antes: este panel es solo para subir).
+// Es la confirmación visual de "subí 1, 2, 3... fotos" que faltaba: antes de
+// esto, subir una foto acá no dejaba ningún rastro visible en este panel.
+// Cada miniatura tiene su propia "×" para sacar una foto subida por error,
+// ANTES de tocar "Generar" — la única forma de borrar una reseña ya lista
+// sigue siendo el 🗑 de la galería (ver renderGallery), pero antes de que se
+// genere no había ninguna manera de sacar una foto subida de más.
+function resenasFotosGridHtml(st){
+  const resenas = st.resenas || [];
+  if(resenas.length === 0) return '';
+  return `
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+      ${resenas.map(r=> `
+        <div style="position:relative; width:56px; height:56px; border-radius:8px; overflow:hidden; border:1px solid #e4dfd0; flex-shrink:0;">
+          <img src="${r.fotoUrl}" alt="" style="width:100%; height:100%; object-fit:cover; display:block;">
+          <button type="button" data-quitar-resena-foto="${r.id}" title="Quitar esta foto" style="position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%; background:rgba(10,15,25,0.65); border:none; color:#fff; font-size:10.5px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">×</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function resenasFormHtml(st){
+  return `
+    <div style="display:flex; flex-direction:column; gap:10px; padding:14px; border:1px dashed #e4dfd0; border-radius:12px;">
+      <div style="font-size:12px; font-weight:700; color:#1c1810;">+ Agregar reseñas reales</div>
+      <label for="resenaFotosInput" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; border-radius:10px; background:#f4f0e4;">
+        <span style="font-size:18px; flex-shrink:0;">📷</span>
+        <span style="font-size:11.5px; color:#6b6455; line-height:1.4;">Subí una o varias fotos reales, una por reseña — tocá para elegir. Esa foto se publica tal cual; el avatar y el texto los arma la IA sola cuando toques "Generar" más abajo.</span>
+        <input type="file" accept="image/*" multiple id="resenaFotosInput" style="display:none;">
+      </label>
+      <div id="resenasProgresoWrap" style="font-size:11.5px; color:#8a8270; display:none;"></div>
+      <div id="resenasFotosGridWrap">${resenasFotosGridHtml(st)}</div>
+    </div>
+  `;
+}
+
+// Pedido 12/09: este panel (Testimonios → Personalizada, adentro del modal
+// de plantillas) ya NO muestra la lista de reseñas ni el botón de borrar acá
+// — el estudiante solo sube las fotos. Las reseñas ya listas (con avatar y
+// texto generados por la IA al tocar "Generar") aparecen como piezas más
+// abajo, en la galería principal, agrupadas bajo "Testimonios" — igual que
+// cualquier otra sección — listas para elegir al "✨ Ensamblar" en el orden
+// que el estudiante quiera (ver renderGallery()). resenasListaHtml() y
+// wireResenasDeleteButtons() quedan definidas pero sin usar acá por si hace
+// falta volver a este panel más adelante.
+function resenasPanelHtml(st){
+  return `
+    <div style="grid-column:1/-1; display:flex; flex-direction:column; gap:14px;">
+      <div id="resenasFormWrap">${resenasFormHtml(st)}</div>
+    </div>
+  `;
+}
+
+// Re-wirea las "×" de las miniaturas (ver resenasFotosGridHtml) después de
+// cada actualización incremental del grid — mismo motivo que
+// wireResenasDeleteButtons: no se puede llamar a renderTmGrid() completo acá
+// porque destruiría el <input type="file"> mientras todavía puede estar
+// procesando el resto de las fotos elegidas.
+function wireResenasFotosGrid(st){
+  const gridWrap = document.getElementById('resenasFotosGridWrap');
+  if(!gridWrap) return;
+  gridWrap.querySelectorAll('[data-quitar-resena-foto]').forEach(btn=>{
+    btn.onclick = ()=>{
+      st.resenas = (st.resenas || []).filter(r => r.id !== btn.dataset.quitarResenaFoto);
+      apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+      gridWrap.innerHTML = resenasFotosGridHtml(st);
+      wireResenasFotosGrid(st);
+      renderTmTabs();
+    };
+  });
+}
+
+// Extraído aparte (no solo dentro de wireResenasPanel) para poder re-wirear
+// los botones de "×" después de cada actualización incremental de la lista
+// (al terminar de procesar cada foto, o al borrar una reseña) sin tener que
+// llamar a renderTmGrid() — eso destruiría el <input type="file"> mientras
+// todavía puede estar procesando el resto de las fotos elegidas.
+function wireResenasDeleteButtons(st){
+  const listaWrap = document.getElementById('resenasListaWrap');
+  if(!listaWrap) return;
+  listaWrap.querySelectorAll('[data-quitar-resena]').forEach(btn=>{
+    btn.onclick = ()=>{
+      st.resenas = (st.resenas || []).filter(r => r.id !== btn.dataset.quitarResena);
+      apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+      listaWrap.innerHTML = resenasListaHtml(st);
+      wireResenasDeleteButtons(st);
+      renderTmTabs();
+    };
+  });
+}
+
+function wireResenasPanel(st){
+  wireResenasFotosGrid(st);
+
+  const fotosInput = document.getElementById('resenaFotosInput');
+  const progresoWrap = document.getElementById('resenasProgresoWrap');
+  if(!fotosInput) return;
+
+  fotosInput.onchange = async (e)=>{
+    const files = Array.from(e.target.files || []);
+    if(files.length === 0) return;
+
+    fotosInput.disabled = true;
+    if(progresoWrap){ progresoWrap.style.display = 'block'; progresoWrap.style.color = '#8a8270'; }
+    let fallidas = 0;
+    let ultimoError = '';
+
+    for(let i = 0; i < files.length; i++){
+      const file = files[i];
+      if(progresoWrap) progresoWrap.textContent = `Subiendo foto ${i + 1} de ${files.length}…`;
+      try{
+        const dataUri = await new Promise((resolve, reject)=>{
+          const reader = new FileReader();
+          reader.onload = ()=> resolve(reader.result);
+          reader.onerror = ()=> reject(new Error('No se pudo leer el archivo.'));
+          reader.readAsDataURL(file);
+        });
+
+        const subeResp = await apiFetch(BACKEND_URL + '/ia/imagenes/subir-foto-producto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUri }),
+        });
+        const subeData = await subeResp.json().catch(()=> ({}));
+        if(!subeResp.ok || !subeData.url) throw new Error(subeData?.message || 'No se pudo subir la foto.');
+
+        // Pedido 11/09 (ajuste pedido por Norbey): acá SOLO se sube la foto y
+        // se guarda como reseña "pendiente" — ya NO se le pide el texto a la
+        // IA en este momento. Muchos estudiantes eligen las plantillas (y
+        // suben estas fotos) ANTES de terminar de llenar el país/ángulo de
+        // venta, así que en este momento esos datos todavía pueden estar
+        // vacíos. El texto de cada reseña pendiente se genera recién cuando
+        // se toca "Generar" —el mismo momento en que se genera el resto de
+        // las secciones—, ahí sí con el país e idioma ya definitivos (ver
+        // el handler de "generateBtn" más abajo en el archivo).
+        const nueva = {
+          id: 'resena-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          fotoUrl: subeData.url,
+          nombre: '',
+          ciudad: '',
+          estrellas: 0,
+          texto: '',
+          pendiente: true,
+          fechaCarga: new Date().toISOString(),
+        };
+        st.resenas = [...(st.resenas || []), nueva];
+        apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+        const gridWrap = document.getElementById('resenasFotosGridWrap');
+        if(gridWrap){
+          gridWrap.innerHTML = resenasFotosGridHtml(st);
+          wireResenasFotosGrid(st);
+        }
+        renderTmTabs();
+      }catch(err){
+        fallidas++;
+        ultimoError = err?.message || 'error desconocido';
+        console.warn('No se pudo subir una de las fotos de reseña:', err);
+      }
+    }
+
+    if(progresoWrap){
+      if(fallidas === 0){
+        progresoWrap.style.color = '#8a8270';
+        progresoWrap.textContent = `Listo — se agregaron ${files.length} foto${files.length === 1 ? '' : 's'}. Cuando toques "Generar" más abajo, la IA arma el avatar y el texto de cada una, y aparecen como piezas en la galería, en "Testimonios".`;
+        setTimeout(()=>{ if(progresoWrap) progresoWrap.style.display = 'none'; }, 5000);
+      } else {
+        // No se oculta solo si hubo algún error — así queda a la vista el
+        // motivo real (el mensaje que mandó el backend), en vez de
+        // desaparecer con un "no se pudo subir" genérico que no ayuda a
+        // saber qué pasó.
+        progresoWrap.style.color = '#c96a6a';
+        progresoWrap.textContent = `Se subieron ${files.length - fallidas} de ${files.length} fotos — ${fallidas} no se pudo${fallidas === 1 ? '' : 'ieron'} subir. Motivo: ${ultimoError}`;
+      }
+    }
+    fotosInput.disabled = false;
+    fotosInput.value = '';
+  };
+}
 
 // ---------------- Pestaña "💾 Plantillas guardadas" ----------------
 // Pedido 07/09: guardar con un nombre la combinación de plantillas elegida (una por sección)
@@ -4777,7 +5490,18 @@ function renderSectionBlocks(){
 function totalSelected(){
   const st = getState(currentProduct);
   let n = 0;
-  Object.values(st.templateSelections).forEach(set=> n += set.size);
+  SECTION_TYPES.forEach(sec=>{
+    // Testimonios en modo Personalizada no usa templateSelections (no se
+    // elige ninguna de las 19 plantillas) — pero elegir ese modo ya define
+    // por completo qué se va a generar para esa sección, así que cuenta
+    // como 1 selección para habilitar "Usar Plantilla(s)".
+    if(sec.key === 'testimonios' && st.testimoniosModo === 'personalizada'){
+      n += 1;
+      return;
+    }
+    const set = st.templateSelections[sec.key];
+    if(set) n += set.size;
+  });
   return n;
 }
 
@@ -4819,7 +5543,7 @@ function updatePlantillaTilePreview(){
   }
   if(total === 0 || !firstImg){
     tile.classList.remove('has-preview');
-    tile.innerHTML = `<div class="ico-circle">🖼</div><b>Seleccionar Plantilla</b><span class="sub">de la Galería EcomMagic</span>`;
+    tile.innerHTML = `<div class="ico-circle">🖼</div><b>Seleccionar Plantilla</b><span class="sub">de la Galería Ecom Magnates</span>`;
     return;
   }
   tile.classList.add('has-preview');
@@ -5099,11 +5823,47 @@ async function entrarAlTaller(usuario){
   await inicializarDesdeBackend();
 }
 
-// Al abrir la página: si hay un token guardado de una sesión anterior, lo
-// valida contra el backend (GET /auth/me) antes de confiar en él — pudo
-// haber vencido, o la cuenta pudo haberse borrado. Si no hay token, o no es
+// Pedido 15/09: inicio de sesión único (SSO) — si el link con el que se abrió
+// el taller trae "?pase=..." (lo genera la plataforma personal del dueño del
+// taller, ver generarPaseSso() en auth.service.ts), lo canjea por una sesión
+// normal ANTES de mirar si hay algún token guardado de una sesión anterior —
+// un pase nuevo siempre tiene que ganarle a lo que ya hubiera guardado (por
+// ejemplo, si entra con esa cuenta estando ya conectado acá con otra). El
+// "?pase=" se borra de la URL apenas se usa (sin recargar la página), para
+// que no quede pegado en el historial del navegador ni se reintente si la
+// persona recarga después.
+async function intentarEntrarConPaseSso(){
+  const params = new URLSearchParams(window.location.search);
+  const pase = params.get('pase');
+  if(!pase) return false;
+  params.delete('pase');
+  const queryLimpio = params.toString();
+  history.replaceState(null, '', window.location.pathname + (queryLimpio ? '?' + queryLimpio : '') + window.location.hash);
+  try{
+    const resp = await fetch(BACKEND_URL + '/auth/sso/entrar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pase }),
+    });
+    if(!resp.ok) throw new Error('Pase inválido o vencido');
+    const data = await resp.json();
+    guardarSesion(data.token, data.email);
+    await entrarAlTaller(data);
+    return true;
+  }catch(err){
+    console.error('No se pudo entrar con el pase de inicio de sesión único:', err);
+    return false;
+  }
+}
+
+// Al abrir la página: primero prueba el pase de inicio de sesión único (si
+// vino uno en el link); si no vino, o no sirvió, sigue con el flujo de
+// siempre — si hay un token guardado de una sesión anterior, lo valida
+// contra el backend (GET /auth/me) antes de confiar en él — pudo haber
+// vencido, o la cuenta pudo haberse borrado. Si no hay token, o no es
 // válido, se queda en la pantalla de entrada.
 async function verificarSesionGuardada(){
+  if(await intentarEntrarConPaseSso()) return;
   const token = obtenerTokenGuardado();
   if(!token){
     mostrarAuthGate();
@@ -5256,7 +6016,13 @@ document.getElementById('generateBtn').onclick = async ()=>{
       toGenerate.push({ id: id + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), sectionKey: sec.key, sectionLabel: sec.label, color: colorFor(id), templateId: id });
     });
   });
-  if(toGenerate.length === 0){
+  // Pedido 11/09 (ajuste): reseñas reales que ya tienen la foto subida pero
+  // todavía no tienen texto (ver wireResenasPanel) — se procesan acá mismo,
+  // junto con el resto de las secciones, para que la IA use el país/idioma
+  // ya definitivos en vez de los que hubiera a medio llenar cuando se subió
+  // la foto.
+  const resenasPendientes = (st.resenas || []).filter(r=> r.pendiente);
+  if(toGenerate.length === 0 && resenasPendientes.length === 0){
     btnGenerar.disabled = false;
     openTemplateModal();
     return;
@@ -5307,10 +6073,11 @@ document.getElementById('generateBtn').onclick = async ()=>{
   progress.style.width = '0%';
   document.getElementById('generateBtn').disabled = true;
 
+  const totalTrabajos = toGenerate.length + resenasPendientes.length;
   const errores = [];
   let done = 0;
   for(const g of toGenerate){
-    jobText.innerHTML = `Generando <b>${done+1}</b> de <b>${toGenerate.length}</b> — ${g.sectionLabel}...`;
+    jobText.innerHTML = `Generando <b>${done+1}</b> de <b>${totalTrabajos}</b> — ${g.sectionLabel}...`;
     progress.classList.add('indeterminate'); // no sabemos cuánto falta dentro de cada llamada, así que anima mientras espera
     try{
       const resp = await apiFetch(BACKEND_URL + '/ia/imagenes/generar-seccion', {
@@ -5339,16 +6106,97 @@ document.getElementById('generateBtn').onclick = async ()=>{
     }
     done++;
     progress.classList.remove('indeterminate');
-    progress.style.width = Math.round(done/toGenerate.length*100) + '%';
+    progress.style.width = Math.round(done/totalTrabajos*100) + '%';
   }
 
-  jobText.innerHTML = `Listo, <b>${done}</b> sección(es) generada(s)`;
+  // Pedido 11/09 (ajuste): reseñas con foto pero sin texto todavía — la IA
+  // recién ahora les escribe el texto, con el país/idioma ya definitivos
+  // (ficha.logistica.pais / ficha.idioma, calculados arriba con los campos
+  // tal como quedaron llenos justo antes de tocar "Generar").
+  for(const r of resenasPendientes){
+    done++;
+    jobText.innerHTML = `Generando <b>${done}</b> de <b>${totalTrabajos}</b> — Reseña...`;
+    progress.classList.add('indeterminate');
+    try{
+      // Pedido 11/09 (versión final): la foto que subió el estudiante (r.fotoUrl) NO se toca —
+      // se publica tal cual. Acá solo se genera lo que falta: el avatar (aparte, según el
+      // "Personaje" configurado) y el texto/nombre/ciudad/estrellas (sin mirar ninguna foto).
+      const yaListas = (st.resenas || []).filter(x=> !x.pendiente);
+      // Pedido 12/09 (bug reportado por Norbey, con captura: avatar de un hombre
+      // con el nombre "Catalina V."): el avatar (foto/carita) y el nombre se piden
+      // en dos llamadas separadas que no se comunican entre sí — si el "Sexo" del
+      // Personaje no quedó fijo en un solo valor ("Seleccionar..." o "Hombre y
+      // Mujer"), cada llamada elegía un sexo al azar por su cuenta, y podían no
+      // coincidir. Acá se decide UN solo sexo para ESTA reseña puntual, antes de
+      // llamar a ninguna de las dos, y se manda ese mismo valor a ambas — así el
+      // avatar y el nombre SIEMPRE quedan del mismo sexo.
+      const sexoConfigurado = (ficha.personajes?.sexo || '').trim();
+      const sexoEfectivoResena = (sexoConfigurado === 'Hombre' || sexoConfigurado === 'Mujer')
+        ? sexoConfigurado
+        : (Math.random() < 0.5 ? 'Hombre' : 'Mujer');
+      const [avatarResp, textoResp] = await Promise.all([
+        apiFetch(BACKEND_URL + '/ia/imagenes/generar-avatar-resena', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ personajes: { ...(ficha.personajes || {}), sexo: sexoEfectivoResena } }),
+        }),
+        apiFetch(BACKEND_URL + '/ia/texto/generar-texto-resena', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            nombreProducto: currentProduct,
+            idioma: ficha.idioma,
+            pais: ficha.logistica.pais,
+            nombresUsados: yaListas.map(x=> x.nombre).filter(Boolean),
+            ciudadesUsadas: yaListas.map(x=> x.ciudad).filter(Boolean),
+            // Pedido 12/09: el mismo sexo que se le mandó al avatar de arriba,
+            // para que el nombre inventado sea siempre acorde a la foto.
+            sexo: sexoEfectivoResena,
+            // Pedido 12/09: para que cada reseña tenga una estructura de
+            // frase distinta (ver ENFOQUES_RESENA en text-generation.service.ts)
+            // — se manda tanto lo ya escrito como la posición de ESTA reseña
+            // en la lista completa, para que el backend le asigne un enfoque
+            // fijo y distinto según esa posición.
+            textosUsados: yaListas.map(x=> x.texto).filter(Boolean),
+            indice: (st.resenas || []).findIndex(x=> x.id === r.id),
+          }),
+        }),
+      ]);
+      const avatarData = await avatarResp.json().catch(()=> ({}));
+      if(!avatarResp.ok) throw new Error(avatarData?.message || `Error ${avatarResp.status} generando el avatar`);
+      const textoData = await textoResp.json().catch(()=> ({}));
+      if(!textoResp.ok) throw new Error(textoData?.message || `Error ${textoResp.status} generando el texto`);
+
+      r.avatarUrl = avatarData.avatarUrl || '';
+      r.nombre = textoData.nombre || 'Cliente V.';
+      r.ciudad = textoData.ciudad || '';
+      r.estrellas = textoData.estrellas || 5;
+      r.texto = textoData.texto || '';
+      delete r.pendiente;
+    }catch(err){
+      console.error('Error generando reseña', err);
+      errores.push({ seccion: 'Reseña', mensaje: err.message });
+    }
+    progress.classList.remove('indeterminate');
+    progress.style.width = Math.round(done/totalTrabajos*100) + '%';
+  }
+  if(resenasPendientes.length){
+    apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+  }
+
+  jobText.innerHTML = `Listo, <b>${done}</b> elemento(s) generado(s)`;
   st.creditsUsed += toGenerate.length;
   SECTION_TYPES.forEach(sec=> st.templateSelections[sec.key].clear());
   setTimeout(()=> banner.classList.remove('active'), 600);
   document.getElementById('generateBtn').disabled = false;
   renderAll();
-  document.getElementById('galleryWrap').scrollIntoView({behavior:'smooth', block:'start'});
+  // Pedido 12/09: las reseñas ya generadas (avatar + texto listos) también
+  // aparecen como piezas en la galería (agrupadas bajo "Testimonios" — ver
+  // renderGallery()), así que hay que bajar a verla también cuando SOLO se
+  // procesaron reseñas (sin ninguna plantilla de imagen).
+  if(toGenerate.length > 0 || resenasPendientes.length > 0){
+    document.getElementById('galleryWrap').scrollIntoView({behavior:'smooth', block:'start'});
+  }
   if(errores.length){
     mostrarSeccionesErrorModal(errores);
   }
@@ -5389,12 +6237,94 @@ document.getElementById('seccionesErrorModal').addEventListener('click', (e)=>{
 });
 
 // ---------------- GALLERY ----------------
+// Pedido 12/09: las reseñas reales ya listas (avatar + texto generados por
+// la IA al tocar "Generar" — ver el handler de "generateBtn") se muestran
+// como piezas más en esta galería, agrupadas bajo "Testimonios", en vez de
+// vivir solo adentro del modal de Personalizada. No se guardan como items
+// nuevos de st.gallery (eso duplicaría el guardado — st.resenas ya se
+// persiste solo en el backend, ver apiGuardarResenasProducto): se arman acá
+// mismo, al renderizar, a partir de st.resenas. Las que siguen "pendiente"
+// (solo la foto subida, esperando "Generar") todavía no aparecen acá.
+function resenasListasParaGaleria(st){
+  return (st.resenas || []).filter(r=> !r.pendiente).map(r=> ({ id: r.id, isResena: true, resena: r }));
+}
+
+// Busca una pieza de la galería por id, ya sea una pieza real (st.gallery)
+// o una reseña ya lista (st.resenas) — hace falta este helper porque ambas
+// conviven visualmente en la misma galería pero viven en dos arrays
+// distintos (ver resenasListasParaGaleria más arriba).
+function buscarPiezaGaleria(st, id){
+  const enGaleria = st.gallery.find(g=> String(g.id) === String(id));
+  if(enGaleria) return enGaleria;
+  const resena = (st.resenas || []).find(r=> !r.pendiente && String(r.id) === String(id));
+  return resena ? { id: resena.id, isResena: true, resena } : null;
+}
+
+// Pedido 12/09: el "Hace X días/semanas/meses" del visor ("Ver Anuncio") ya
+// NO se calcula con la fecha real en que se subió la foto (fechaCarga) —
+// como normalmente se suben todas las fotos de las reseñas juntas, de una
+// sola vez, se veía poco natural que TODAS dijeran "Hace 0 días". Ahora es
+// una secuencia FIJA según el orden de las reseñas en la lista (la primera
+// es la "más reciente"): este cálculo tiene que ser IDÉNTICO al de
+// calcularTiempoRelativo() en shopify.service.ts (mismos pasos, mismo
+// orden), para que lo que el estudiante ve acá en el taller sea igual a lo
+// que después se ve en la landing publicada de verdad.
+function resenaTiempoRelativo(st, resena){
+  const indice = (st.resenas || []).findIndex(r=> r.id === resena.id);
+  const dias = [1, 3, 5];
+  if(indice < dias.length){
+    const d = dias[Math.max(0, indice)];
+    return d === 1 ? 'Hace 1 día' : `Hace ${d} días`;
+  }
+  const semanas = [1, 2, 3];
+  const idxSemana = indice - dias.length;
+  if(idxSemana < semanas.length){
+    const s = semanas[idxSemana];
+    return s === 1 ? 'Hace 1 semana' : `Hace ${s} semanas`;
+  }
+  const meses = indice - dias.length - semanas.length + 1;
+  return meses <= 1 ? 'Hace 1 mes' : `Hace ${meses} meses`;
+}
+
+// Miniatura de una reseña real dentro de la galería: mismo tamaño/estructura
+// que el resto de las piezas (mismos botones "👁 Ver Anuncio" / "🗑" y misma
+// insignia de selección al Ensamblar), pero con una vista previa propia en
+// vez de una sola imagen plana — avatar + nombre arriba, estrellas, y la
+// foto real que subió el estudiante abajo.
+function resenaCardHtml(it, st){
+  const r = it.resena;
+  const avatarImg = r.avatarUrl
+    ? `<img src="${r.avatarUrl}" alt="" style="width:22px; height:22px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+    : `<span style="width:22px; height:22px; border-radius:50%; background:var(--coral); color:#1c1408; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</span>`;
+  return `
+    <div class="frame ${st.realAssembleMode?'ce-card-pick':''}" style="padding:0; overflow:hidden; ${st.realAssembleMode?'cursor:pointer;':'cursor:default;'}" data-realid="${it.id}">
+      <div style="position:relative;">
+        <img src="${r.fotoUrl}" alt="Testimonios" style="width:100%; height:150px; object-fit:cover; display:block;">
+        <div style="position:absolute; top:6px; left:6px; right:6px; display:flex; align-items:center; gap:6px; background:rgba(10,15,25,0.65); border-radius:20px; padding:3px 8px 3px 3px;">
+          ${avatarImg}
+          <span style="font-size:10.5px; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">${r.nombre||''}</span>
+          <span style="font-size:10px; color:#6fcf97; flex-shrink:0;">✓</span>
+        </div>
+        <div style="position:absolute; bottom:6px; left:6px; font-size:10.5px; color:#f0b90b; text-shadow:0 1px 3px rgba(0,0,0,0.7);">${'★'.repeat(r.estrellas||5)}</div>
+        ${st.realAssembleMode ? `<div class="ce-pick-badge ${st.realAssembleOrder.includes(it.id)?'picked':''}" data-realpick="${it.id}">${st.realAssembleOrder.includes(it.id) ? st.realAssembleOrder.indexOf(it.id)+1 : ''}</div>` : ''}
+      </div>
+      ${st.realAssembleMode ? '' : `
+      <div class="ce-card-actions">
+        <button class="ce-view-btn" data-viewid="${it.id}">👁 Ver Anuncio</button>
+        <button class="ce-delete-btn" data-delid="${it.id}" title="Eliminar">🗑</button>
+      </div>`}
+    </div>
+  `;
+}
+
 function renderGallery(){
   const wrap = document.getElementById('galleryWrap');
   const st = getState(currentProduct);
   renderRealAssembledLandings();
 
-  if(st.gallery.length === 0){
+  const resenasListas = resenasListasParaGaleria(st);
+
+  if(st.gallery.length === 0 && resenasListas.length === 0){
     wrap.innerHTML = `<div class="empty-gallery"><div class="eg-icon">🖼</div><b>Sin secciones generadas</b>Las secciones que generes aparecerán aquí organizadas por tipo</div>`;
     return;
   }
@@ -5404,7 +6334,12 @@ function renderGallery(){
     if(!bySec[g.sectionKey]) bySec[g.sectionKey] = [];
     bySec[g.sectionKey].push(g);
   });
+  if(resenasListas.length){
+    if(!bySec['testimonios']) bySec['testimonios'] = [];
+    bySec['testimonios'] = bySec['testimonios'].concat(resenasListas);
+  }
 
+  const totalPiezas = st.gallery.length + resenasListas.length;
   const nSel = st.realAssembleOrder.length;
   const toolbar = st.realAssembleMode ? `
     <div class="ce-toolbar">
@@ -5417,7 +6352,7 @@ function renderGallery(){
     </div>
   ` : `
     <div class="ce-toolbar">
-      <div class="ce-toolbar-count">${st.gallery.length} pieza(s) generada(s)</div>
+      <div class="ce-toolbar-count">${totalPiezas} pieza(s) generada(s)</div>
       <div class="ce-toolbar-actions">
         <button class="ce-toolbar-btn ce-toolbar-btn-primary" id="realDescargaMasiva">⬇ Descarga masiva</button>
         <button class="ce-toolbar-btn ce-toolbar-btn-dark" id="realEnsamblarLanding">✨ Ensamblar</button>
@@ -5433,7 +6368,7 @@ function renderGallery(){
       <div class="filmstrip-group">
         <div class="filmstrip-h"><h4>${sec.label}</h4><div class="line"></div><span class="cnt">${items.length}</span></div>
         <div class="filmstrip">
-          ${items.map(it=> it.image ? `
+          ${items.map(it=> it.isResena ? resenaCardHtml(it, st) : it.image ? `
             <div class="frame ${st.realAssembleMode?'ce-card-pick':''}" style="padding:0; overflow:hidden; ${st.realAssembleMode?'cursor:pointer;':'cursor:default;'}" data-realid="${it.id}">
               <div style="position:relative;">
                 <img src="${it.image}" alt="${sec.label}" style="width:100%; height:150px; object-fit:cover; display:block;">
@@ -5478,15 +6413,24 @@ function renderGallery(){
   wrap.querySelectorAll('[data-viewid]').forEach(btn=>{
     btn.onclick = (e)=>{
       e.stopPropagation();
-      const item = st.gallery.find(g=>g.id===btn.dataset.viewid);
-      if(item && item.image) openRealLightbox(item);
+      const item = buscarPiezaGaleria(st, btn.dataset.viewid);
+      if(item && (item.image || item.isResena)) openRealLightbox(item);
     };
   });
 
   wrap.querySelectorAll('[data-delid]').forEach(btn=>{
     btn.onclick = (e)=>{
       e.stopPropagation();
-      st.gallery = st.gallery.filter(g=> g.id !== btn.dataset.delid);
+      const id = btn.dataset.delid;
+      if(st.gallery.some(g=> String(g.id) === String(id))){
+        st.gallery = st.gallery.filter(g=> String(g.id) !== String(id));
+      } else {
+        // Es una reseña real, no una pieza de st.gallery — se borra de
+        // st.resenas (igual que el "×" que antes vivía adentro del modal de
+        // Personalizada) y se guarda ese borrado en el backend.
+        st.resenas = (st.resenas || []).filter(r=> String(r.id) !== String(id));
+        apiGuardarResenasProducto(currentProduct, st.testimoniosModo, st.resenas);
+      }
       renderGallery();
     };
   });
@@ -5647,7 +6591,48 @@ function attachZoomPan(wrapper, imgEl){
   });
 }
 
+// Visor "Ver Anuncio" para una reseña real: a diferencia del resto de las
+// piezas (una sola imagen plana), acá hay que armar la tarjeta completa —
+// avatar, nombre, ciudad, verificada, estrellas, texto y la foto real que
+// subió el estudiante — igual que se ve en la landing publicada.
+function openRealLightboxResena(item){
+  const r = item.resena;
+  const st = getState(currentProduct);
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.88); z-index:9999; display:flex; align-items:center; justify-content:center; padding:30px;';
+  const avatarImg = r.avatarUrl
+    ? `<img src="${r.avatarUrl}" alt="" style="width:44px; height:44px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+    : `<span style="width:44px; height:44px; border-radius:50%; background:var(--coral); color:#1c1408; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</span>`;
+  overlay.innerHTML = `
+    <div style="max-width:380px; width:100%; max-height:90vh; overflow:auto; background:#fff; border-radius:16px; padding:22px;" onclick="event.stopPropagation();">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          ${avatarImg}
+          <div style="min-width:0;">
+            <div style="font-weight:700; font-size:14px; color:#1c1810; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.nombre||''}</div>
+            <div style="font-size:12px; color:#8a8270;">${r.ciudad||''}</div>
+          </div>
+        </div>
+        <span style="font-size:11px; font-weight:700; color:#2f9e5b; display:flex; align-items:center; gap:3px; flex-shrink:0;">✓ Verificada</span>
+      </div>
+      <div style="color:#f0b90b; font-size:15px; margin-bottom:10px;">${'★'.repeat(r.estrellas||5)}</div>
+      <div style="font-size:13.5px; color:#1c1810; line-height:1.5; margin-bottom:14px;">${r.texto||''}</div>
+      <img src="${r.fotoUrl}" alt="" style="width:100%; border-radius:10px; display:block; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="font-size:11px; color:#8a8270;">${resenaTiempoRelativo(st, r)}</div>
+        <button class="ce-modal-btn" id="realBtnResenaFoto" style="background:#f4f0e4; color:#1c1810; border:1px solid #e4dfd0;">⬇ Descargar foto</button>
+      </div>
+    </div>
+    <button id="realModalClose" style="position:absolute; top:24px; right:28px; background:none; border:none; color:#fff; font-size:26px; cursor:pointer; line-height:1;">×</button>
+  `;
+  overlay.onclick = ()=> overlay.remove();
+  document.body.appendChild(overlay);
+  overlay.querySelector('#realModalClose').onclick = ()=> overlay.remove();
+  overlay.querySelector('#realBtnResenaFoto').onclick = (e)=> galleryDownload(r.fotoUrl, ('resena-' + (r.nombre||'foto')).replace(/[^a-z0-9\-]/gi,'_') + '.png', e.currentTarget);
+}
+
 function openRealLightbox(item){
+  if(item.isResena) return openRealLightboxResena(item);
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.88); z-index:9999; display:flex; align-items:center; justify-content:center; padding:30px;';
   const filename = (item.sectionKey + '-' + (item.templateId || 'landing')).replace(/[^a-z0-9\-]/gi,'_');
@@ -5748,9 +6733,28 @@ async function apiEliminarLanding(landing){
 
 function realConfirmarEnsamblarLanding(){
   const st = getState(currentProduct);
-  const ordered = st.realAssembleOrder
-    .map(id => st.gallery.find(g=> String(g.id) === String(id)))
-    .filter(Boolean);
+  // Pedido 12/09: si entre las piezas elegidas hay una o más reseñas reales
+  // (sección "Testimonios" en modo Personalizada), NO entran una por una a
+  // la landing — se juntan en un único marcador {tipo:'resenas'}, en la
+  // posición de la PRIMERA reseña elegida (según el orden en que se
+  // seleccionaron), y ese marcador trae TODAS las reseñas ya generadas del
+  // producto (no solo las que se hayan tocado en la galería) — así funciona
+  // de verdad el bloque de reseñas en Shopify: una sola sección con todas
+  // las reseñas adentro, no una sección por reseña. Este mismo marcador es
+  // el que ya entiende realResenasMarcadorHtml/enviarLandingAShopify más
+  // abajo (es el mismo que arma la tarjeta "Agregar Sección de Reseñas" del
+  // editor de la landing).
+  let yaIncluyeResenas = false;
+  const ordered = [];
+  st.realAssembleOrder.forEach(id=>{
+    const galItem = st.gallery.find(g=> String(g.id) === String(id));
+    if(galItem){ ordered.push(galItem); return; }
+    const esResena = (st.resenas || []).some(r=> !r.pendiente && String(r.id) === String(id));
+    if(esResena && !yaIncluyeResenas){
+      yaIncluyeResenas = true;
+      ordered.push({ tipo: 'resenas', id: 'resenas-' + Date.now().toString(36) });
+    }
+  });
   if(ordered.length === 0) return;
 
   st.realAssembleMode = false;
@@ -5788,6 +6792,8 @@ function renderRealAssembledLandings(){
               </div>
               ${landing.items.map(item => item.tipo === 'boton_comprar'
                 ? `<div style="padding:8px 12px; background:#f5f1e4;"><div style="width:100%; padding:9px; background:#000; color:#fff; text-align:center; font-weight:800; font-size:10px; letter-spacing:0.03em; border-radius:4px;">COMPRAR AHORA</div></div>`
+                : item.tipo === 'resenas'
+                ? `<div style="padding:10px 12px; background:#f5f1e4; text-align:center; font-size:10px; font-weight:700; color:#7c3aed; border-top:1px dashed #cbbfa0; border-bottom:1px dashed #cbbfa0;">💬 Reseñas reales</div>`
                 : `<img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel}">`
               ).join('')}
               <div style="display:flex; align-items:center; justify-content:space-around; padding:8px 10px; background:#f5f1e4; position:sticky; bottom:0;">
@@ -5896,9 +6902,6 @@ const ICONOS_BOTON = {
   caja: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
   bolso: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; vertical-align:-3px;"><path d="M4 9h16l-1.5 10.5a2 2 0 0 1-2 1.5H7.5a2 2 0 0 1-2-1.5L4 9z"></path><path d="M8 9V7a4 4 0 0 1 8 0v2"></path><circle cx="12" cy="14" r="1"></circle></svg>',
 };
-// Etiquetas cortas para el desplegable de íconos (ver realIconoBotonPickerInnerHtml).
-const ICONOS_BOTON_LABEL = { ninguno: 'Ninguno', carrito: 'Carrito', bolsa: 'Bolsa', canasta: 'Canasta', tarjeta: 'Tarjeta', etiqueta: 'Etiqueta', camion: 'Camión', flecha: 'Flecha', caja: 'Caja', bolso: 'Bolso' };
-
 // Ícono efectivo de una landing: si nunca se eligió ninguno (landings viejas,
 // o una recién creada), cae en "camion" — mismo valor por defecto que usa el
 // backend (normalizarIconoBoton en shopify.service.ts) para que no cambie de
@@ -5925,95 +6928,31 @@ function animacionEfectiva(landing){
   if(landing.animacionBoton && ANIMACIONES_BOTON.some(a=> a.valor === landing.animacionBoton)) return landing.animacionBoton;
   return landing.movimiento ? 'pulsacion' : 'ninguna';
 }
-// Traduce una animación efectiva al nombre del @keyframes de vista previa
-// (definidos en el <style> de realVerLandingCompleta) — '' si es "ninguna".
-function animacionCssBoton(animacion){
-  if(animacion === 'sacudida') return 'animation:realBtnShake 3s ease-in-out infinite;';
-  if(animacion === 'rebote') return 'animation:realBtnBounce 3s ease-in-out infinite;';
-  if(animacion === 'pulsacion') return 'animation:realBtnPulse 3s ease-in-out infinite;';
-  return '';
-}
+// Pedido 10/09 → simplificado 10/09 (2): el botón "REALIZAR PEDIDO" de la
+// landing es solo una REFERENCIA (Norbey aclaró que nunca se le muestra al
+// cliente real — ver el comentario grande en shopify.service.ts sobre
+// "landing-respaldo-boton"), así que ya no hace falta que el taller ofrezca
+// animación, ícono, ni texto/color editables para él: quedó reducido a
+// activar/desactivar, con texto y color siempre fijos (ver
+// realBotonComprarHtml / realBotonFlotanteHtml más abajo). Por eso se
+// sacaron de acá animacionCssBoton, landingCantidadBotones,
+// aplicarTextoBotonGlobal y aplicarColorBotonGlobal (solo las usaban los
+// controles que ya no existen).
 
-// Cuántos botones "COMPRAR AHORA" tiene la landing en total — los
-// intercalados (items de tipo boton_comprar) más el flotante si está
-// agregado. Se usa para decidir si tiene sentido ofrecer "aplicar a todos"
-// (pedido 10/09): con un solo botón en toda la landing no hay "los demás" a
-// los que aplicarles nada.
-function landingCantidadBotones(landing){
-  const nIntercalados = Array.isArray(landing.items) ? landing.items.filter(it => it.tipo === 'boton_comprar').length : 0;
-  return nIntercalados + (landing.botonFlotante ? 1 : 0);
-}
-
-// Pone el mismo texto en TODOS los botones "COMPRAR AHORA" de la landing —
-// los intercalados y el flotante — pedido 10/09 ("agregar ahí mismo para
-// editar el texto y que se aplique en todos los botones"). Usado tanto por
-// el campo "Texto del botón" de la tarjeta "Agregar Botón entre Secciones"
-// (siempre aplica a todos) como, si el estudiante confirma, después de tocar
-// el texto de un botón puntual en el celular.
-function aplicarTextoBotonGlobal(landing, texto){
-  const limpio = String(texto || '').trim();
-  if(Array.isArray(landing.items)) landing.items.forEach(it => { if(it.tipo === 'boton_comprar') it.texto = limpio; });
-  landing.botonFlotanteTexto = limpio;
-}
-
-// Pone el mismo color (y su color de texto con contraste recalculado) en
-// TODOS los botones "COMPRAR AHORA" de la landing — pedido 10/09 ("que
-// cuando elija un color salga algo para aplicar ese mismo color a los demás
-// botones"). Se usa después de que el estudiante confirma el aviso que
-// aparece al elegir un color en cualquier botón puntual (ver wireBotonFlotanteCard
-// y el listener de data-color-boton más abajo).
-function aplicarColorBotonGlobal(landing, color){
-  const colorTexto = realColorTextoContraste(color);
-  if(Array.isArray(landing.items)) landing.items.forEach(it => { if(it.tipo === 'boton_comprar'){ it.color = color; it.colorTexto = colorTexto; } });
-  landing.botonFlotanteColor = color;
-  landing.botonFlotanteColorTexto = colorTexto;
-}
-
-// Botón "COMPRAR AHORA" ya insertado en la secuencia — mismo estilo (píldora
-// + ícono elegido) que el que se va a dibujar en la landing real, para que el
-// estudiante vea acá lo mismo que va a quedar publicado. El texto es
-// editable tocándolo directo ahí mismo (contenteditable — se guarda solo al
-// sacarle el foco, ver el "focusout" delegado en realVerLandingCompleta), y
-// el color con el circulito de la esquina (input type="color" nativo). Cada
-// botón guarda su propio texto y color por separado — si nunca se tocan, en
-// Shopify sale amarillo con "COMPRAR AHORA" por defecto.
-// Pedido 10/09: el ícono va en una placa oscura redondeada, separada del
-// texto, calcando el espíritu del botón real de Releasit que mandó Norbey de
-// referencia ("Pídela y Paga en Casa" con su ícono en una placa oscura). Se
-// probó primero con la placa SUPERPUESTA en la esquina del botón
-// (position:absolute con top negativo, igual que en la foto), pero Norbey
-// reportó el 10/09 que en la vista previa del taller la placa aparecía
-// descolgada, montada sobre la sección anterior — y probando en un navegador
-// real se confirmó que en shopify.service.ts (donde el botón no tiene el
-// mismo colchón de padding que acá en el taller) la placa iba a quedar
-// todavía peor, mordiendo la imagen de arriba. Por eso se pasó primero a una
-// placa oscura EN LÍNEA, pegada al texto — pero Norbey mandó de nuevo la
-// captura del botón real de Releasit el 08/09 aclarando que el ícono real NO
-// lleva ningún fondo relleno (va directo en negro, del mismo color que el
-// texto) y va pegado a la izquierda del botón, no junto al texto en el
-// centro. Por eso ahora: el ícono va SIN fondo (toma el mismo color que
-// colorTexto, igual que el texto) y fijo a la izquierda con
-// "position:absolute; top:50%; transform:translateY(-50%)" — pero sin
-// ningún offset negativo (a diferencia del primer intento), así que siempre
-// queda contenido adentro del botón, nunca se sale ni tapa nada de arriba.
-// El texto sigue centrado solo (el ícono, al estar con position:absolute,
-// no lo empuja). El circulito de elegir color se dejó en la esquina inferior
-// izquierda (donde ya estaba) — es solo una herramienta de edición del
-// taller, no aparece en la landing real.
-function realBotonComprarHtml(item, landing){
-  const texto = realEscHtml(item.texto || 'COMPRAR AHORA');
-  const color = item.color || '#f0b90b';
-  const colorTexto = item.colorTexto || realColorTextoContraste(color);
-  const anim = animacionCssBoton(animacionEfectiva(landing));
-  const iconoKey = iconoBotonEfectivo(landing);
-  const icono = ICONOS_BOTON[iconoKey];
-  const badge = (iconoKey !== 'ninguno' && icono) ? `<span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; color:${colorTexto}; pointer-events:none;">${icono}</span>` : '';
+// Botón "REALIZAR PEDIDO" ya insertado en la secuencia — pedido 10/09 (2):
+// Norbey aclaró que este botón NUNCA se le muestra al cliente real (el
+// backend arma su propia sección invisible de respaldo — ver el comentario
+// grande en shopify.service.ts sobre "landing-respaldo-boton"), solo sirve
+// como referencia visual acá en el taller para marcar en qué posición va a
+// quedar el botón real de Releasit/EasySell. Por eso ya no es editable: ni
+// texto, ni color, ni animación, ni ícono — queda fijo (texto "REALIZAR
+// PEDIDO", fondo amarillo) y lo único que se puede hacer es quitarlo con la
+// "×".
+function realBotonComprarHtml(item){
   return `<div style="padding:10px 14px; background:#f5f1e4; position:relative;">
-    <div style="position:relative; display:flex; align-items:center; justify-content:center; width:100%; padding:12px 16px; background:${color}; color:${colorTexto}; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em; ${anim}">
-      ${badge}
-      <span contenteditable="true" spellcheck="false" data-texto-boton="${item.id}" title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
+    <div style="display:flex; align-items:center; justify-content:center; width:100%; padding:12px 16px; background:#f0b90b; color:#111; border-radius:999px; box-shadow:0 2px 6px rgba(0,0,0,0.18); font-weight:800; font-size:12px; letter-spacing:0.03em;">
+      REALIZAR PEDIDO
     </div>
-    <input type="color" data-color-boton="${item.id}" value="${color}" title="Elegir color del botón" style="position:absolute; left:6px; bottom:2px; width:22px; height:22px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
     <button data-remove-item="${item.id}" title="Quitar este botón" style="position:absolute; top:2px; right:8px; background:none; border:none; color:#c96a6a; font-size:15px; cursor:pointer; line-height:1; z-index:2;">×</button>
   </div>`;
 }
@@ -6022,26 +6961,139 @@ function realBotonComprarHtml(item, landing){
 // marcadores de botón de comprar intercalados. mostrarGaps controla si se ven
 // los "+" en cada hueco (solo cuando el modo "Agregar Botón entre Secciones"
 // está activo — ver realInsertarBotonCardHtml).
+// Pedido 18/09 ("puedo mover con el mouse cada sección?"): cada pieza de la
+// secuencia (imagen de sección, botón de comprar o bloque de reseñas) queda
+// envuelta en un contenedor arrastrable con su propio "agarre" (⠿) — ver
+// wireDragReorder() en realVerLandingCompleta, que escucha dragstart/
+// dragover/drop sobre #realPhoneSeq y reordena landing.items en memoria.
+// draggable="false" en el <img> es a propósito: sin eso el navegador arranca
+// SU PROPIO drag nativo de la imagen (para "guardar imagen"/arrastrarla a
+// otra pestaña) en vez de disparar el dragstart del contenedor.
 function realSecuenciaEditableHtml(landing, mostrarGaps){
   let html = realInsertGapHtml(0, mostrarGaps);
   landing.items.forEach((item, i)=>{
-    html += item.tipo === 'boton_comprar'
-      ? realBotonComprarHtml(item, landing)
-      : `<img src="${item.image}" style="width:100%; display:block;" alt="${item.sectionLabel||''}">`;
+    let inner;
+    if(item.tipo === 'boton_comprar') inner = realBotonComprarHtml(item);
+    else if(item.tipo === 'resenas') inner = realResenasMarcadorHtml(item);
+    else inner = `<img src="${item.image}" draggable="false" style="width:100%; display:block;" alt="${item.sectionLabel||''}">`;
+    html += `<div class="real-seq-item" data-item-id="${item.id}" draggable="true">
+      <div class="real-seq-handle" title="Arrastrá para mover esta sección" style="position:absolute; top:6px; left:8px; z-index:4; width:24px; height:24px; border-radius:6px; background:rgba(0,0,0,0.5); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:grab; pointer-events:none;">⠿</div>
+      ${inner}
+    </div>`;
     html += realInsertGapHtml(i+1, mostrarGaps);
   });
   return html;
 }
 
-// Pedido 10/09: un botón NUEVO tiene que arrancar con el texto que ya esté
-// puesto en el campo "Texto del botón" del Editor de Elementos (a mano
-// derecha) — no siempre con "COMPRAR AHORA" a secas — así el estudiante no
-// tiene que volver a escribirlo botón por botón. "textoInicial" es opcional:
-// si no se manda (o llega vacío), el botón simplemente no trae "texto" propio
-// y cae en el default de siempre al dibujarse (ver realBotonComprarHtml).
-function realInsertarBotonComprar(landing, idx, textoInicial){
-  const item = { tipo: 'boton_comprar', id: 'btn-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6) };
-  if(textoInicial) item.texto = textoInicial;
+// Debe reflejar lo mismo que calcularResumenResenas() en shopify.service.ts
+// (mismo promedio/total/%) — para que el resumen que se ve acá en el editor
+// sea igual al que se va a publicar de verdad.
+function resenasResumenGaleria(resenas){
+  const total = resenas.length;
+  const conteos = {5:0,4:0,3:0,2:0,1:0};
+  let suma = 0;
+  resenas.forEach(r=>{
+    const estrellas = Math.min(5, Math.max(1, Math.round(Number(r.estrellas) || 5)));
+    conteos[estrellas]++;
+    suma += estrellas;
+  });
+  const pct = {};
+  [5,4,3,2,1].forEach(k=> pct[k] = total>0 ? Math.round((conteos[k]/total)*100) : 0);
+  return { promedio: total>0 ? (suma/total).toFixed(2) : '5.00', total, pct };
+}
+
+// Pedido 12/09: acá antes solo había un aviso ("Acá van las reseñas
+// reales") en vez de mostrar las tarjetas de verdad — el estudiante pedía
+// ver, adentro del "Ver landing", cómo van a quedar ensambladas de una. Este
+// bloque ahora arma el mismo resumen (promedio + barras) y las mismas
+// tarjetas (avatar, nombre, ciudad, verificada, estrellas, texto, foto,
+// tiempo) que arma seccionResenasLiquid en shopify.service.ts — mismo
+// aspecto que va a tener la sección real en Shopify, solo que dibujado acá
+// en HTML/JS en vez de Liquid. La "×" para quitar la sección se mantiene.
+// Pedido 18/09 (2): hasta 3 fotos reales de la reseña, en miniatura, cada
+// una abrible en una pestaña nueva con un clic (mismo tope de 3 que usa
+// shopify.service.ts para la sección real — ver la nota grande de
+// ResenaLanding.fotos ahí). Se abre en pestaña nueva en vez de un lightbox
+// propio acá: esto es solo la VISTA PREVIA dentro del taller, la landing
+// real ya tiene su propio lightbox (ver seccionResenasLiquid).
+function realResenaFotosPreviewHtml(r){
+  const fotos = (Array.isArray(r.fotos) && r.fotos.length > 0 ? r.fotos : (r.fotoUrl ? [r.fotoUrl] : [])).slice(0, 3);
+  if(fotos.length === 0) return '';
+  return `<div style="display:flex; gap:6px; margin-top:6px;">
+    ${fotos.map(url => `<a href="${url}" target="_blank" rel="noopener" title="Abrir foto en grande" style="display:block; width:56px; height:56px; border-radius:8px; overflow:hidden; flex-shrink:0;">
+      <img src="${url}" alt="" style="width:100%; height:100%; object-fit:cover; display:block;">
+    </a>`).join('')}
+  </div>`;
+}
+
+function realResenasMarcadorHtml(item){
+  const st = getState(currentProduct);
+  const resenas = (st.resenas || []).filter(r=> !r.pendiente);
+  const botonQuitar = `<button data-remove-item="${item.id}" title="Quitar sección de reseñas" style="position:absolute; top:6px; right:8px; background:rgba(255,255,255,0.85); border-radius:50%; width:22px; height:22px; border:none; color:#c96a6a; font-size:15px; cursor:pointer; line-height:1; z-index:2;">×</button>`;
+  if(resenas.length === 0){
+    // Todavía no hay ninguna reseña lista — se deja el aviso de siempre en
+    // vez de una caja vacía.
+    return `<div style="padding:14px; background:#f5f1e4; position:relative; border-top:1px dashed #cbbfa0; border-bottom:1px dashed #cbbfa0;">
+      <div style="display:flex; align-items:center; justify-content:center; gap:6px; width:100%; padding:14px 16px; background:#fff; border:1px dashed #7c3aed; border-radius:10px; color:#7c3aed; font-weight:700; font-size:11.5px; letter-spacing:0.02em;">
+        💬 Acá van las reseñas reales
+      </div>
+      ${botonQuitar}
+    </div>`;
+  }
+  const resumen = resenasResumenGaleria(resenas);
+  const barra = (n, pct) => `
+    <div style="display:flex; align-items:center; gap:6px; font-size:9.5px; color:#555;">
+      <span style="width:8px; text-align:right;">${n}</span>
+      <div style="flex:1; height:5px; background:#eee; border-radius:99px; overflow:hidden;"><div style="height:100%; width:${pct}%; background:#f0b90b;"></div></div>
+      <span style="width:24px; color:#999;">${pct}%</span>
+    </div>`;
+  const tarjetas = resenas.map(r=>{
+    const estrellas = Math.min(5, Math.max(1, Math.round(Number(r.estrellas) || 5)));
+    const avatarImg = r.avatarUrl
+      ? `<img src="${r.avatarUrl}" alt="" style="width:30px; height:30px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+      : `<div style="width:30px; height:30px; border-radius:50%; background:#7c3aed; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${(r.nombre||'?').slice(0,1).toUpperCase()}</div>`;
+    return `
+      <div style="border:1px solid #ececec; border-radius:12px; padding:10px; background:#fff;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${avatarImg}
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:11px; color:#1a1a1a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.nombre||''}</div>
+            ${r.ciudad ? `<div style="font-size:9.5px; color:#8a8a8a;">${r.ciudad}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0; display:flex; align-items:center; gap:2px; background:#e9f9ee; color:#1a9e57; font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:99px; white-space:nowrap;">✓ Verificada</div>
+        </div>
+        <div style="color:#f0b90b; font-size:11px; margin:6px 0 4px;">${'★'.repeat(estrellas)}${'☆'.repeat(5-estrellas)}</div>
+        <div style="font-size:10.5px; line-height:1.4; color:#2a2a2a;">${r.texto||''}</div>
+        ${realResenaFotosPreviewHtml(r)}
+        <div style="font-size:9px; color:#aaa; margin-top:6px;">${resenaTiempoRelativo(st, r)}</div>
+      </div>`;
+  }).join('');
+  return `<div style="padding:14px; background:#f5f1e4; position:relative; border-top:1px dashed #cbbfa0; border-bottom:1px dashed #cbbfa0;">
+    <div style="text-align:center; margin-bottom:8px;">
+      <div style="font-size:9px; font-weight:800; letter-spacing:0.05em; color:#7c3aed; text-transform:uppercase;">Lo que dicen nuestros clientes</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; border:1px solid #e7e3f5; border-radius:12px; padding:10px; margin-bottom:10px; background:#fff;">
+      <div style="text-align:center; flex-shrink:0;">
+        <div style="font-size:20px; font-weight:800; color:#1a1a1a; line-height:1;">${resumen.promedio}</div>
+        <div style="color:#f0b90b; font-size:10px; margin:3px 0;">★★★★★</div>
+        <div style="font-size:8.5px; color:#8a8a8a; white-space:nowrap;">${resumen.total} reseñas</div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:3px; min-width:0;">
+        ${barra(5, resumen.pct[5])}${barra(4, resumen.pct[4])}${barra(3, resumen.pct[3])}${barra(2, resumen.pct[2])}${barra(1, resumen.pct[1])}
+      </div>
+    </div>
+    <div style="max-height:340px; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; gap:8px;">
+      ${tarjetas}
+    </div>
+    ${botonQuitar}
+  </div>`;
+}
+
+// Pedido 10/09 (2): un botón nuevo ya nace con texto y color fijos
+// ("REALIZAR PEDIDO", amarillo) — ver la nota grande de realBotonComprarHtml
+// sobre por qué ya no hace falta que sean editables.
+function realInsertarBotonComprar(landing, idx){
+  const item = { tipo: 'boton_comprar', id: 'btn-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6), texto: 'REALIZAR PEDIDO', color: '#f0b90b', colorTexto: '#111' };
   landing.items.splice(idx, 0, item);
   renderRealAssembledLandings();
   apiActualizarLanding(landing, { items: landing.items });
@@ -6053,34 +7105,38 @@ function realQuitarItemLanding(landing, itemId){
   apiActualizarLanding(landing, { items: landing.items });
 }
 
+// Pedido 18/09 ("puedo mover con el mouse cada sección?"): reordena
+// landing.items sacando el item "itemId" e insertándolo justo antes del
+// item "antesDeId" — si antesDeId es null/no existe, lo manda al final. Se
+// llama desde wireDragReorder() al soltar el arrastre. Mismo patrón que
+// realInsertarBotonComprar/realQuitarItemLanding: muta en memoria, refresca
+// la miniatura de "Landings Ensambladas" y persiste al backend.
+function realMoverItemLanding(landing, itemId, antesDeId){
+  if(itemId === antesDeId) return;
+  const idxOrigen = landing.items.findIndex(it => it.id === itemId);
+  if(idxOrigen === -1) return;
+  const [item] = landing.items.splice(idxOrigen, 1);
+  const idxDestino = antesDeId ? landing.items.findIndex(it => it.id === antesDeId) : -1;
+  if(idxDestino === -1) landing.items.push(item);
+  else landing.items.splice(idxDestino, 0, item);
+  renderRealAssembledLandings();
+  apiActualizarLanding(landing, { items: landing.items });
+}
+
 // Vista previa del "Botón Flotante": una barra fija abajo del teléfono que
 // simula cómo se ve en el celular real (position:sticky dentro del marco del
-// teléfono, igual que hace Shopify con position:fixed en la página real —
-// ver seccionLandingLiquid en el backend). Vacío si landing.botonFlotante no
-// está agregado. Mismo texto editable tocándolo y mismo selector de color que
-// los botones intercalados (ver realBotonComprarHtml) — acá el texto/color
-// se guardan en landing.botonFlotanteTexto / landing.botonFlotanteColor, ya
-// que este botón es uno solo por landing, no un item de la secuencia. Trae
+// teléfono, igual que hace Shopify con position:fixed en la página real).
+// Vacío si landing.botonFlotante no está agregado. Pedido 10/09 (2): igual
+// que el botón intercalado (ver realBotonComprarHtml), esto es solo una
+// referencia — nunca se le muestra al cliente real — así que ya no es
+// editable: texto y color quedan fijos ("REALIZAR PEDIDO", amarillo). Trae
 // su propia "×" para poder quitarlo directo desde donde se ve, sin tener que
 // volver a la tarjeta de arriba.
 function realBotonFlotanteHtml(landing){
   if(!landing.botonFlotante) return '';
-  const texto = realEscHtml(landing.botonFlotanteTexto || 'COMPRAR AHORA');
-  const color = landing.botonFlotanteColor || '#f0b90b';
-  const colorTexto = landing.botonFlotanteColorTexto || realColorTextoContraste(color);
-  const anim = animacionCssBoton(animacionEfectiva(landing));
-  const iconoKey = iconoBotonEfectivo(landing);
-  const icono = ICONOS_BOTON[iconoKey];
-  // Mismo cambio que realBotonComprarHtml de arriba — ícono sin fondo
-  // relleno, fijo a la izquierda del botón con position:absolute pero sin
-  // ningún offset negativo (siempre contenido adentro). El circulito de
-  // color se dejó abajo (bottom:-10px), como ya estaba.
-  const badge = (iconoKey !== 'ninguno' && icono) ? `<span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; color:${colorTexto}; pointer-events:none;">${icono}</span>` : '';
   return `<div style="position:sticky; bottom:34px; padding:8px 10px 0; background:transparent; z-index:4;">
-    <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; background:${color}; color:${colorTexto}; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22); ${anim}">
-      ${badge}
-      <span contenteditable="true" spellcheck="false" data-texto-flotante title="Tocá para escribir otro texto" style="outline:none; min-width:16px; text-align:center; cursor:text;">${texto}</span>
-      <input type="color" data-color-flotante value="${color}" title="Elegir color del botón flotante" style="position:absolute; left:8px; bottom:-10px; width:20px; height:20px; padding:0; border:2px solid #fff; border-radius:50%; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.3); background:none;">
+    <div style="position:relative; width:100%; padding:12px; display:flex; align-items:center; justify-content:center; background:#f0b90b; color:#111; font-weight:800; font-size:12px; letter-spacing:0.03em; border-radius:999px; box-shadow:0 4px 14px rgba(0,0,0,0.45), 0 0 0 3px rgba(124,58,237,0.22);">
+      REALIZAR PEDIDO
       <button type="button" data-quitar-flotante title="Quitar botón flotante" style="position:absolute; top:-9px; right:-9px; width:20px; height:20px; border-radius:50%; background:#e05252; border:2px solid #1c2733; color:#fff; font-size:11px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; z-index:3;">×</button>
     </div>
   </div>`;
@@ -6107,118 +7163,37 @@ function realBotonFlotanteCardHtml(landing){
   `;
 }
 
-// "Texto del botón", "Animación de botón" e "Icono de botón": pedido 10/09 —
-// que se vean "adentro" de la misma tarjeta de "Agregar Botón entre
-// Secciones" (no como tarjetas sueltas aparte), visibles solo mientras esa
-// tarjeta está activa (mostrando = true, ver realInsertarBotonCardHtml más
-// abajo). Por eso estas funciones devuelven solo el CONTENIDO interno (sin
-// tarjeta ni borde propio): las arma realInsertarBotonCardHtml() más abajo,
-// dentro de su mismo cuadro, debajo del botón "Agregar Botón entre
-// Secciones" / "Ocultar Puntos de Inserción".
-//
-// Campo de texto para TODA la landing a la vez: escribir acá y sacarle el
-// foco pone ese mismo texto en TODOS los botones "COMPRAR AHORA" (los
-// intercalados y el flotante) — pedido 10/09. Si un botón puntual ya tenía
-// otro texto, tocarlo directo en el celular lo sigue permitiendo cambiar
-// aparte. Arranca con el texto del primer botón que ya exista (o vacío, con
-// el placeholder de "COMPRAR AHORA" por defecto).
-// Texto "global" actual de la landing: el de su primer botón intercalado que
-// ya tenga uno propio, o si no el del flotante — o vacío si ninguno tiene
-// todavía. Se usa para precargar el campo "Texto del botón" (de abajo) y,
-// desde wireBotonFlotanteCard, como texto de partida al agregar el botón
-// flotante (pedido 10/09: un botón nuevo arranca con el mismo texto que ya
-// tienen los demás, no siempre con "COMPRAR AHORA" a secas).
-function textoBotonGlobalActual(landing){
-  const primero = Array.isArray(landing.items) ? landing.items.find(it => it.tipo === 'boton_comprar' && it.texto) : null;
-  return (primero && primero.texto) || landing.botonFlotanteTexto || '';
-}
-
-function realTextoBotonInnerHtml(landing){
-  const actual = textoBotonGlobalActual(landing);
-  return `
-    <div style="display:flex; flex-direction:column; gap:6px;">
-      <div style="display:flex; align-items:center; gap:6px;">
-        <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">Texto del botón</span>
-        <span class="ce-info-wrap" onclick="event.stopPropagation();">
-          <span class="ce-info-icon">?</span>
-          <span class="ce-info-tooltip">Escribí acá y sacale el foco para poner ese mismo texto en TODOS los botones "COMPRAR AHORA" de esta landing (los intercalados y el flotante) de una sola vez.</span>
-        </span>
+// Pedido 11/09: sección "Testimonios" en modo Personalizada — tarjeta que
+// agrega/quita el bloque real de reseñas (foto + texto reales, adaptados
+// por IA) a la landing. Solo se puede activar si el producto ya está en
+// modo "Personalizada" (se elige en Testimonios → Seleccionar Plantilla) y
+// tiene al menos 1 reseña real cargada — si no, se muestra deshabilitada
+// con una pista de qué hacer, en vez de dejar clickear en el vacío.
+function realResenasCardHtml(landing, st){
+  const modoOk = st.testimoniosModo === 'personalizada';
+  const cantidad = (st.resenas || []).length;
+  const disponible = modoOk && cantidad > 0;
+  const activo = !!landing.items.some(it => it.tipo === 'resenas');
+  if(!disponible){
+    const motivo = !modoOk
+      ? 'Elegí "Personalizada" en Testimonios → Seleccionar Plantilla'
+      : 'Todavía no cargaste ninguna reseña real en Testimonios → Personalizada';
+    return `
+      <div style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 14px; border-radius:12px; border:1px dashed var(--line-strong); background:var(--ink-2); opacity:0.65;">
+        <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:rgba(255,255,255,0.08);">💬</span>
+        <span style="display:block; font-size:11.5px; color:var(--text-dim); line-height:1.35;">${motivo}</span>
       </div>
-      <input type="text" id="realInputTextoBotonGlobal" value="${realEscHtml(actual)}" placeholder="COMPRAR AHORA" maxlength="40" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line-strong); background:var(--ink-3); color:var(--paper); font-size:12.5px;">
-    </div>
-  `;
-}
-
-// Selector <select> normal, para TODA la landing a la vez (sigue siendo un
-// ajuste global por landing, no botón por botón — igual que hacen otras apps
-// de Shopify con este mismo tipo de animación). Se guarda en
-// landing.animacionBoton y viaja a Shopify como el metafield
-// ecom_magnates.landing_animacion_boton — ver seccionLandingLiquid en el
-// backend. animacionEfectiva() resuelve el valor a mostrar acá mismo si la
-// landing es vieja y solo tiene el booleano "movimiento" de antes.
-function realAnimacionSelectInnerHtml(landing){
-  const actual = animacionEfectiva(landing);
-  const opciones = ANIMACIONES_BOTON.map(a => `<option value="${a.valor}" ${a.valor === actual ? 'selected' : ''}>${a.label}</option>`).join('');
+    `;
+  }
   return `
-    <div style="display:flex; flex-direction:column; gap:6px;">
-      <div style="display:flex; align-items:center; gap:6px;">
-        <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">Animación de botón</span>
-        <span class="ce-info-wrap" onclick="event.stopPropagation();">
-          <span class="ce-info-icon">?</span>
-          <span class="ce-info-tooltip">Hace que TODOS los botones "COMPRAR AHORA" de esta landing (los intercalados y el flotante) se muevan solos cada tanto para llamar la atención, igual que otras apps de Shopify.</span>
-        </span>
-      </div>
-      <select id="realSelectAnimacionBoton" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line-strong); background:var(--ink-3); color:var(--paper); font-size:12.5px; cursor:pointer;">${opciones}</select>
-    </div>
-  `;
-}
-
-// Grid de íconos monocromos (pedido 09/09 — "sin color, solo así" con
-// captura de referencia): reemplaza el camión fijo. El ícono elegido se
-// resalta con un borde violeta (mismo color que el resto de tarjetas activas
-// de este panel). Se guarda en landing.iconoBoton y viaja a Shopify como el
-// metafield ecom_magnates.landing_icono_boton — ver seccionLandingLiquid en
-// el backend. Ver comentario de realAnimacionSelectInnerHtml de arriba sobre
-// por qué esto es solo el contenido interno, sin tarjeta propia.
-// Pedido 10/09: "Icono de botón" pasa de ser un grid siempre abierto a un
-// desplegable (botón que muestra el ícono elegido + una flechita, y al
-// tocarlo despliega el panel con todas las opciones) — calcado del
-// desplegable de la captura de referencia que mandó Norbey. El panel
-// (#realIconoBotonDropdown) arranca oculto (atributo "hidden") y
-// wireIconoBotonPicker() lo abre/cierra; el "click fuera cierra" lo maneja
-// un listener en capture puesto una sola vez sobre el overlay (ver más abajo
-// en realVerLandingCompleta), así no hace falta reenganchar nada acá.
-//
-// OJO 10/09: al principio el panel se armó con position:absolute (flotando
-// ENCIMA del resto de tarjetas) — pero el panel derecho del Editor de
-// Elementos tiene overflow-y:auto para poder scrollear, y por una regla de
-// CSS cuando un contenedor tiene overflow-y distinto de "visible" el
-// navegador fuerza también overflow-x a "auto" (no se puede tener un eje en
-// "visible" y el otro no) — así que cualquier cosa que se saliera del ancho
-// del panel quedaba CORTADA en vez de flotar encima, que es justo lo que se
-// vio en la captura de Norbey. Fix: el panel ya no flota (nada de
-// position:absolute) — es un bloque normal que empuja hacia abajo el resto
-// de tarjetas mientras está abierto, y las columnas del grid son "1fr" (se
-// achican solas para entrar siempre en el ancho disponible), así nunca más
-// se puede cortar sea cual sea el ancho del panel.
-function realIconoBotonPickerInnerHtml(landing){
-  const actual = iconoBotonEfectivo(landing);
-  const opciones = Object.keys(ICONOS_BOTON).map(key => {
-    const activo = key === actual;
-    return `<button type="button" data-icono-boton="${key}" title="${ICONOS_BOTON_LABEL[key]}" style="display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1; min-width:0; border-radius:8px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-3)'}; color:var(--paper);">${key === 'ninguno' ? '<span style="font-size:14px; line-height:1; opacity:0.6;">∅</span>' : ICONOS_BOTON[key]}</button>`;
-  }).join('');
-  return `
-    <div style="display:flex; flex-direction:column; gap:6px;">
-      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">Icono de botón</span>
-      <button type="button" id="realIconoBotonTrigger" style="display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line-strong); background:var(--ink-3); color:var(--paper); cursor:pointer;">
-        <span style="display:flex; align-items:center; gap:8px;">
-          <span style="display:flex; align-items:center; justify-content:center; width:18px; height:18px;">${actual === 'ninguno' ? '<span style="font-size:13px; opacity:0.6;">∅</span>' : ICONOS_BOTON[actual]}</span>
-          <span style="font-size:12.5px;">${ICONOS_BOTON_LABEL[actual]}</span>
-        </span>
-        <span style="font-size:10px; opacity:0.7;">▾</span>
-      </button>
-      <div id="realIconoBotonDropdown" hidden style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; padding:10px; border-radius:10px; border:1px solid var(--line-strong); background:var(--ink-2);">${opciones}</div>
-    </div>
+    <button type="button" id="realBtnResenasCard" title="${activo ? 'Quitar sección de reseñas' : 'Agregar sección de reseñas'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:10px 30px 10px 14px; border-radius:12px; cursor:pointer; border:1px solid ${activo ? '#7c3aed' : 'var(--line-strong)'}; background:${activo ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
+      <span style="width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; background:${activo ? '#7c3aed' : 'rgba(255,255,255,0.08)'};">${activo ? '🔓' : '💬'}</span>
+      <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${activo ? 'Quitar Sección de Reseñas' : `Agregar Sección de Reseñas (${cantidad})`}</span>
+      <span class="ce-info-wrap" onclick="event.stopPropagation();">
+        <span class="ce-info-icon">?</span>
+        <span class="ce-info-tooltip">Agrega el bloque real de reseñas (con scroll) al final de esta landing, con las ${cantidad} reseña${cantidad===1?'':'s'} real${cantidad===1?'':'es'} que cargaste en Testimonios.</span>
+      </span>
+    </button>
   `;
 }
 
@@ -6318,21 +7293,17 @@ function realBarraCardHtml(landing){
 // Flotante). Reemplaza el texto de instrucciones que antes vivía en el panel
 // izquierdo: ahora es un botón real que prende/apaga los "+" entre cada
 // sección dentro del celular. Con un "+" el usuario inserta ahí un marcador
-// de botón "COMPRAR AHORA" (item.tipo === 'boton_comprar') — igual que antes,
-// eso viaja a Shopify dentro de la secuencia y se dibuja ahí como un botón
-// real (ver enviarLandingAShopify y seccionLandingLiquid en el backend).
-// Pedido 10/09: "Animación de botón" e "Icono de botón" ya no son tarjetas
-// sueltas — viven DENTRO de esta misma tarjeta ("en el mismo cuadro"),
-// debajo del botón "Agregar Botón entre Secciones" / "Ocultar Puntos de
-// Inserción", separadas por una lineita — y solo se muestran cuando esta
-// tarjeta está ACTIVA (mostrando = true, o sea que ya tocaste "Agregar Botón
-// entre Secciones" y quedó en "Ocultar Puntos de Inserción"). Corrección
-// 10/09: al principio se mostraban si la landing ya tenía algún botón
-// agregado (intercalado o flotante) sin importar esta tarjeta — pero eso
-// hacía que aparecieran igual con la tarjeta cerrada/inactiva, que es
-// justamente lo que no se quería. Ahora quedan atadas al mismo estado
-// "abierto"/"cerrado" de la tarjeta, así se ve de una que pertenecen a ella.
-function realInsertarBotonCardHtml(mostrando, landing){
+// de botón "boton_comprar" — eso viaja a Shopify dentro de la secuencia y el
+// backend arma ahí su propia sección real de Releasit/EasySell (ver
+// enviarLandingAShopify y shopify.service.ts).
+// Pedido 10/09 (2): esta tarjeta volvió a ser solo el simple activar/
+// desactivar de siempre — se sacaron "Texto del botón", "Animación de
+// botón" e "Icono de botón" (vivían anidados acá debajo, pedido 10/09
+// original) porque Norbey aclaró que el botón que arma esta tarjeta es
+// nada más una referencia visual, nunca se le muestra al cliente real, así
+// que no tiene sentido poder personalizarlo (ver la nota grande en
+// realBotonComprarHtml).
+function realInsertarBotonCardHtml(mostrando){
   return `
     <div style="display:flex; flex-direction:column; gap:10px; padding:10px 14px; border-radius:12px; border:1px solid ${mostrando ? '#7c3aed' : 'var(--line-strong)'}; background:${mostrando ? 'rgba(124,58,237,0.16)' : 'var(--ink-2)'};">
       <button type="button" id="realBtnInsertarBotonCard" title="${mostrando ? 'Ocultar puntos de inserción' : 'Agregar botón entre secciones'}" style="position:relative; display:flex; align-items:center; gap:10px; text-align:left; width:100%; padding:0; border:none; background:none; cursor:pointer;">
@@ -6340,20 +7311,15 @@ function realInsertarBotonCardHtml(mostrando, landing){
         <span style="display:block; font-weight:700; font-size:12.5px; color:var(--paper);">${mostrando ? 'Ocultar Puntos de Inserción' : 'Agregar Botón entre Secciones'}</span>
         <span class="ce-info-wrap" onclick="event.stopPropagation();">
           <span class="ce-info-icon">?</span>
-          <span class="ce-info-tooltip">Muestra un "+" entre cada sección del celular para insertar ahí un botón "COMPRAR AHORA" — también viaja a Shopify.</span>
+          <span class="ce-info-tooltip">Muestra un "+" entre cada sección del celular para insertar ahí un botón "REALIZAR PEDIDO" — también viaja a Shopify.</span>
         </span>
       </button>
-      ${mostrando ? `
-      <div id="realAnimacionIconoWrap" style="display:flex; flex-direction:column; gap:10px; padding-top:10px; border-top:1px solid rgba(124,58,237,0.35);">
-        ${realTextoBotonInnerHtml(landing)}
-        ${realAnimacionSelectInnerHtml(landing)}
-        ${realIconoBotonPickerInnerHtml(landing)}
-      </div>` : ''}
     </div>
   `;
 }
 
 function realVerLandingCompleta(landing){
+  const st = getState(currentProduct);
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(5,10,20,0.88); z-index:9999; display:flex; align-items:center; justify-content:center; padding:30px;';
   // Controla si se ven los "+" entre secciones dentro del celular — se prende
@@ -6361,7 +7327,15 @@ function realVerLandingCompleta(landing){
   // derecho (Editor de elementos), no toca landing.items por sí solo.
   let mostrarInsertarBoton = false;
   overlay.innerHTML = `
-    <style>@keyframes realBtnPulse{0%,70%{transform:scale(1);}80%{transform:scale(1.06);}90%,100%{transform:scale(1);}}@keyframes realBtnShake{0%,80%{transform:translateX(0);}84%{transform:translateX(-5px);}88%{transform:translateX(4px);}92%{transform:translateX(-3px);}96%{transform:translateX(2px);}100%{transform:translateX(0);}}@keyframes realBtnBounce{0%,68%,100%{transform:translateY(0);}75%{transform:translateY(-8px);}82%{transform:translateY(0);}88%{transform:translateY(-4px);}94%{transform:translateY(0);}}@keyframes realBarraScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}.realBarraTrack{animation:realBarraScroll 14s linear infinite;}.realBarraTrack.paused{animation-play-state:paused;}</style>
+    <style>@keyframes realBtnPulse{0%,70%{transform:scale(1);}80%{transform:scale(1.06);}90%,100%{transform:scale(1);}}@keyframes realBtnShake{0%,80%{transform:translateX(0);}84%{transform:translateX(-5px);}88%{transform:translateX(4px);}92%{transform:translateX(-3px);}96%{transform:translateX(2px);}100%{transform:translateX(0);}}@keyframes realBtnBounce{0%,68%,100%{transform:translateY(0);}75%{transform:translateY(-8px);}82%{transform:translateY(0);}88%{transform:translateY(-4px);}94%{transform:translateY(0);}}@keyframes realBarraScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}.realBarraTrack{animation:realBarraScroll 14s linear infinite;}.realBarraTrack.paused{animation-play-state:paused;}
+    /* Pedido 18/09: arrastrar cada sección con el mouse para reordenarla —
+       ver realSecuenciaEditableHtml/wireDragReorder más abajo. El "agarre"
+       (⠿) solo se ve al pasar el mouse por encima para no ensuciar la vista
+       previa el resto del tiempo. */
+    .real-seq-item{ cursor:grab; position:relative; }
+    .real-seq-item.real-seq-dragging{ opacity:0.35; }
+    .real-seq-handle{ opacity:0; transition:opacity .15s; }
+    .real-seq-item:hover .real-seq-handle{ opacity:1; }</style>
     <div style="display:flex; max-width:1140px; width:100%; max-height:90vh; background:var(--ink-2); border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;" onclick="event.stopPropagation();">
       <div style="width:230px; flex-shrink:0; padding:20px; display:flex; flex-direction:column; gap:10px; border-right:1px solid var(--line-strong); overflow-y:auto;">
         <div style="font-size:11px; color:var(--text-dimmer); text-transform:uppercase; letter-spacing:0.04em;">Landing completa</div>
@@ -6396,8 +7370,9 @@ function realVerLandingCompleta(landing){
       <div style="width:230px; flex-shrink:0; padding:20px; display:flex; flex-direction:column; gap:10px; border-left:1px solid var(--line-strong); overflow-y:auto;">
         <div style="font-size:11px; color:#a78bfa; text-transform:uppercase; letter-spacing:0.04em; font-weight:700;">Editor de elementos</div>
         <div style="font-size:11px; color:var(--text-dimmer); line-height:1.4;">Elementos que puedes agregar a esta landing.</div>
-        <div id="realInsertarBotonCardWrap">${realInsertarBotonCardHtml(mostrarInsertarBoton, landing)}</div>
+        <div id="realInsertarBotonCardWrap">${realInsertarBotonCardHtml(mostrarInsertarBoton)}</div>
         <div id="realBotonFlotanteCardWrap">${realBotonFlotanteCardHtml(landing)}</div>
+        <div id="realResenasCardWrap">${realResenasCardHtml(landing, st)}</div>
         <div id="realBarraCardWrap">${realBarraCardHtml(landing)}</div>
       </div>
     </div>
@@ -6415,12 +7390,7 @@ function realVerLandingCompleta(landing){
   seqEl.addEventListener('click', (e)=>{
     const btnInsert = e.target.closest('[data-insert-at]');
     if(btnInsert){
-      // El texto de partida del botón nuevo sale del campo "Texto del botón"
-      // (a mano derecha, dentro de "Agregar Botón entre Secciones") tal como
-      // esté en ese momento — así el botón nuevo ya nace con el mismo texto
-      // que los demás, sin que el estudiante tenga que volver a escribirlo.
-      const textoGlobal = overlay.querySelector('#realInputTextoBotonGlobal')?.value?.trim();
-      realInsertarBotonComprar(landing, parseInt(btnInsert.dataset.insertAt, 10), textoGlobal);
+      realInsertarBotonComprar(landing, parseInt(btnInsert.dataset.insertAt, 10));
       seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
       return;
     }
@@ -6428,75 +7398,90 @@ function realVerLandingCompleta(landing){
     if(btnRemove){
       realQuitarItemLanding(landing, btnRemove.dataset.removeItem);
       seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+      // La "×" de la vista previa puede haber quitado justo el marcador de
+      // reseñas — repinta la tarjeta para que vuelva a decir "Agregar..." en
+      // vez de quedar mostrando "Quitar..." con el bloque ya sacado.
+      overlay.querySelector('#realResenasCardWrap').innerHTML = realResenasCardHtml(landing, st);
+      wireResenasCard();
       return;
     }
   });
 
-  // Guarda el texto de un botón "COMPRAR AHORA" ya insertado apenas el
-  // estudiante saca el foco del span editable (contenteditable) donde lo
-  // escribió — se usa "focusout" (no "blur") porque "blur" no burbujea y acá
-  // el listener está delegado sobre #realPhoneSeq, no puesto directo en cada
-  // span (que se destruye y se vuelve a crear cada vez que se repinta la
-  // secuencia).
-  seqEl.addEventListener('focusout', (e)=>{
-    const span = e.target.closest('[data-texto-boton]');
-    if(!span) return;
-    const item = landing.items.find(it => it.id === span.dataset.textoBoton);
-    if(!item) return;
-    item.texto = span.textContent.trim();
-    apiActualizarLanding(landing, { items: landing.items });
-  });
-
-  // Guarda el color elegido con el circulito (input type="color" nativo) de
-  // un botón ya insertado, recalcula el color de texto para que siga
-  // teniendo contraste, y repinta ya mismo para que el estudiante vea el
-  // cambio reflejado en el botón (el input en sí no necesita repintarse).
-  seqEl.addEventListener('change', (e)=>{
-    const input = e.target.closest('[data-color-boton]');
-    if(!input) return;
-    const item = landing.items.find(it => it.id === input.dataset.colorBoton);
-    if(!item) return;
-    item.color = input.value;
-    item.colorTexto = realColorTextoContraste(item.color);
-    apiActualizarLanding(landing, { items: landing.items });
-    seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
-    // Pedido 10/09: si hay más de un botón en la landing, preguntar (con el
-    // aviso propio del taller, no el confirm() feo del navegador — ver
-    // mostrarConfirmacion más arriba) si este mismo color se aplica también
-    // a todos los demás (los otros intercalados y el flotante) — con un solo
-    // botón en toda la landing no tiene sentido preguntar, no habría "los demás".
-    if(landingCantidadBotones(landing) > 1){
-      mostrarConfirmacion({
-        titulo: 'Aplicar color a todos',
-        mensaje: '¿Aplicar este mismo color a TODOS los botones "COMPRAR AHORA" de esta landing (los demás intercalados y el flotante)?',
-        textoConfirmar: 'Sí, aplicar a todos',
-        textoCancelar: 'No, solo este',
-        icono: '🎨',
-        colorAccent: '#7c3aed',
-        onConfirm: ()=>{
-          aplicarColorBotonGlobal(landing, item.color);
-          seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
-          overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
-          apiActualizarLanding(landing, { items: landing.items, botonFlotanteColor: landing.botonFlotanteColor, botonFlotanteColorTexto: landing.botonFlotanteColorTexto });
-        },
-      });
+  // Pedido 18/09 ("puedo mover con el mouse cada sección, ejemplo doy clic y
+  // muevo la sección que está abajo hacia arriba?"): arrastrar y soltar cada
+  // pieza de la secuencia (imagen, botón de comprar o bloque de reseñas)
+  // para reordenarla. Mismo mecanismo delegado que el click de arriba — un
+  // solo listener por evento en vez de re-enganchar cada vez que se repinta.
+  let dragItemId = null; // id del item que se está arrastrando ahora mismo
+  function limpiarIndicadoresDrop(){
+    seqEl.querySelectorAll('.real-seq-item').forEach(el=>{
+      el.style.borderTop = '';
+      el.style.borderBottom = '';
+    });
+  }
+  seqEl.addEventListener('dragstart', (e)=>{
+    const el = e.target.closest('.real-seq-item');
+    if(!el){ e.preventDefault(); return; }
+    dragItemId = el.dataset.itemId;
+    el.classList.add('real-seq-dragging');
+    if(e.dataTransfer){
+      e.dataTransfer.effectAllowed = 'move';
+      // Firefox exige setData con algo para permitir el drag — el valor en
+      // sí no se usa, la reordenación se hace con dragItemId de arriba.
+      try{ e.dataTransfer.setData('text/plain', dragItemId); }catch{}
     }
   });
+  seqEl.addEventListener('dragover', (e)=>{
+    if(!dragItemId) return;
+    const el = e.target.closest('.real-seq-item');
+    if(!el) return;
+    e.preventDefault(); // necesario para que 'drop' dispare
+    limpiarIndicadoresDrop();
+    if(el.dataset.itemId === dragItemId) return;
+    const rect = el.getBoundingClientRect();
+    const enMitadSuperior = (e.clientY - rect.top) < rect.height / 2;
+    el.style[enMitadSuperior ? 'borderTop' : 'borderBottom'] = '3px solid #7c3aed';
+  });
+  seqEl.addEventListener('drop', (e)=>{
+    if(!dragItemId) return;
+    e.preventDefault();
+    const el = e.target.closest('.real-seq-item');
+    limpiarIndicadoresDrop();
+    if(el && el.dataset.itemId !== dragItemId){
+      const rect = el.getBoundingClientRect();
+      const enMitadSuperior = (e.clientY - rect.top) < rect.height / 2;
+      // "antes de" el item soltado si soltó en la mitad de arriba; si soltó
+      // en la de abajo, antes del que sigue (o al final si era el último).
+      let antesDeId = enMitadSuperior ? el.dataset.itemId : null;
+      if(!enMitadSuperior){
+        // El siguiente elemento en el DOM puede ser el "hueco" del + entre
+        // secciones, no otra tarjeta — por eso se busca hacia adelante hasta
+        // encontrar la próxima .real-seq-item real (o ninguna, si era la última).
+        let sib = el.nextElementSibling;
+        while(sib){
+          if(sib.classList && sib.classList.contains('real-seq-item')){ antesDeId = sib.dataset.itemId; break; }
+          sib = sib.nextElementSibling;
+        }
+      }
+      realMoverItemLanding(landing, dragItemId, antesDeId);
+      seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+    }
+    dragItemId = null;
+  });
+  seqEl.addEventListener('dragend', ()=>{
+    // Si se soltó fuera de cualquier tarjeta (drop no llegó a disparar acá
+    // dentro), igual hay que limpiar el resaltado y el estado de arrastre.
+    dragItemId = null;
+    limpiarIndicadoresDrop();
+    seqEl.querySelectorAll('.real-seq-dragging').forEach(el=> el.classList.remove('real-seq-dragging'));
+  });
 
-  // Repinta la tarjeta "Agregar Botón entre Secciones" completa — incluida,
-  // si corresponde, el Texto/Animación/Icono de botón que ahora viven
-  // anidados adentro de este mismo cuadro (pedido 10/09) — y re-engancha los
-  // 4 controles que puede tener adentro (el botón de +/✕, el campo de texto,
-  // el <select> de animación y el grid de íconos). Se llama al togglear la
-  // tarjeta (esos controles solo se ven con "mostrando" activo, ver
-  // realInsertarBotonCardHtml más arriba) y cada vez que cambia el ícono
-  // elegido (para resaltar el nuevo).
+  // Repinta la tarjeta "Agregar Botón entre Secciones" (pedido 10/09 (2): ya
+  // no lleva nada anidado adentro, así que solo hace falta re-enganchar el
+  // botón de +/✕).
   function repintarInsertarBotonCard(){
-    overlay.querySelector('#realInsertarBotonCardWrap').innerHTML = realInsertarBotonCardHtml(mostrarInsertarBoton, landing);
+    overlay.querySelector('#realInsertarBotonCardWrap').innerHTML = realInsertarBotonCardHtml(mostrarInsertarBoton);
     wireInsertarBotonCard();
-    wireTextoBotonGlobal();
-    wireAnimacionSelect();
-    wireIconoBotonPicker();
   }
   // Botón "Agregar Botón entre Secciones" / "Ocultar Puntos de Inserción":
   // togglea si se ven los "+" entre cada sección dentro del celular. No toca
@@ -6516,7 +7501,7 @@ function realVerLandingCompleta(landing){
     const original = btnEl.textContent;
     btnEl.textContent = '⏳ Descargando…'; btnEl.disabled = true;
     try{
-      const merged = await realMergeIntoCanvas(landing.items.filter(it => it.tipo !== 'boton_comprar'));
+      const merged = await realMergeIntoCanvas(landing.items.filter(it => it.tipo !== 'boton_comprar' && it.tipo !== 'resenas'));
       const blob = await new Promise(res=> merged.toBlob(res, formato==='2k'?'image/png':'image/webp', formato==='2k'?undefined:0.82));
       if(!blob) throw new Error('No se pudo generar la imagen combinada');
       await downloadBlobDirect(blob, `landing_${landing.num}_completa${formato==='2k'?'_2K.png':'_optimizada.webp'}`);
@@ -6528,7 +7513,7 @@ function realVerLandingCompleta(landing){
 
   async function descargarPorSecciones(formato, btnEl){
     const original = btnEl.textContent;
-    const soloImagenes = landing.items.filter(it => it.tipo !== 'boton_comprar');
+    const soloImagenes = landing.items.filter(it => it.tipo !== 'boton_comprar' && it.tipo !== 'resenas');
     for(let i=0; i<soloImagenes.length; i++){
       const item = soloImagenes[i];
       btnEl.textContent = `⏳ ${i+1}/${soloImagenes.length}…`;
@@ -6583,110 +7568,46 @@ function realVerLandingCompleta(landing){
     if(!btn) return;
     btn.onclick = ()=>{
       landing.botonFlotante = !landing.botonFlotante;
-      // Mismo criterio que al insertar un botón intercalado nuevo (ver
-      // seqEl "click" de data-insert-at más abajo): si el flotante todavía
-      // no tenía su propio texto, arranca con el texto "global" actual — el
-      // del campo de la derecha si está a la vista, o si no el que ya tengan
-      // los demás botones — en vez de siempre "COMPRAR AHORA".
-      if(landing.botonFlotante && !landing.botonFlotanteTexto){
-        const input = overlay.querySelector('#realInputTextoBotonGlobal');
-        const texto = (input && input.value.trim()) || textoBotonGlobalActual(landing);
-        if(texto) landing.botonFlotanteTexto = texto;
+      // Pedido 10/09 (2): texto y color fijos al activarlo — ver la nota
+      // grande de realBotonFlotanteHtml sobre por qué ya no es editable.
+      if(landing.botonFlotante){
+        landing.botonFlotanteTexto = 'REALIZAR PEDIDO';
+        landing.botonFlotanteColor = '#f0b90b';
+        landing.botonFlotanteColorTexto = '#111';
       }
       actualizarBotonFlotante();
     };
   }
   wireBotonFlotanteCard();
 
-  // Campo "Texto del botón" (anidado adentro de la tarjeta "Agregar Botón
-  // entre Secciones", ver realInsertarBotonCardHtml): al sacarle el foco,
-  // pone ese mismo texto en TODOS los botones de la landing a la vez —
-  // repinta la secuencia de botones intercalados y el botón flotante, y
-  // sincroniza el cambio al backend (items completos + botonFlotanteTexto).
-  function actualizarTextoBotonGlobal(){
-    seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
-    overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
-    apiActualizarLanding(landing, { items: landing.items, botonFlotanteTexto: landing.botonFlotanteTexto });
+  // Tarjeta "Agregar Sección de Reseñas" (Testimonios en modo Personalizada):
+  // agrega/quita un único marcador "resenas" al FINAL de la secuencia (no
+  // tiene un "+" puntual como el botón de comprar — no hace falta elegir
+  // posición porque solo puede haber una por landing). La tarjeta misma se
+  // repinta entera cada vez que cambia algo en Testimonios (ver
+  // guardarResenasProducto en el panel de Testimonios), así que también hay
+  // que exponer esta función para que ese panel la pueda llamar.
+  function repintarResenasCard(){
+    overlay.querySelector('#realResenasCardWrap').innerHTML = realResenasCardHtml(landing, st);
+    wireResenasCard();
   }
-  function wireTextoBotonGlobal(){
-    const input = overlay.querySelector('#realInputTextoBotonGlobal');
-    if(!input) return;
-    // "change" (no "input"): solo se aplica al sacarle el foco, no en cada
-    // letra tipeada — igual que el resto de los campos de texto del taller.
-    input.addEventListener('change', ()=>{
-      aplicarTextoBotonGlobal(landing, input.value);
-      actualizarTextoBotonGlobal();
-    });
-    // Enter también cuenta como "terminé de escribir" (le saca el foco al
-    // input, lo que dispara el "change" de arriba).
-    input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') input.blur(); });
-  }
-  wireTextoBotonGlobal();
-
-  // Selector "Animación de botón" (anidado adentro de la tarjeta "Agregar
-  // Botón entre Secciones", ver realInsertarBotonCardHtml): cambia la
-  // animación (Ninguna/Sacudida/Rebote/Pulsación) en TODOS los botones de la
-  // landing a la vez — repinta la secuencia de botones intercalados y el
-  // botón flotante (si lo tiene), y sincroniza el cambio al backend. No hace
-  // falta repintar la tarjeta entera: es un <select> nativo, el navegador ya
-  // muestra el valor elegido solo.
-  function actualizarAnimacionBoton(){
-    seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
-    overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
-    apiActualizarLanding(landing, { animacionBoton: landing.animacionBoton });
-  }
-  function wireAnimacionSelect(){
-    const sel = overlay.querySelector('#realSelectAnimacionBoton');
-    if(!sel) return;
-    sel.onchange = ()=>{
-      landing.animacionBoton = sel.value;
-      actualizarAnimacionBoton();
+  function wireResenasCard(){
+    const btn = overlay.querySelector('#realBtnResenasCard');
+    if(!btn) return;
+    btn.onclick = ()=>{
+      const yaEsta = landing.items.some(it => it.tipo === 'resenas');
+      if(yaEsta){
+        landing.items = landing.items.filter(it => it.tipo !== 'resenas');
+      } else {
+        landing.items = [...landing.items, { tipo: 'resenas', id: 'resenas-' + Date.now().toString(36) }];
+      }
+      seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
+      repintarResenasCard();
+      apiActualizarLanding(landing, { items: landing.items });
     };
   }
-  wireAnimacionSelect();
-
-  // Grid "Icono de botón" (anidado en la misma tarjeta, ver comentario de
-  // arriba): elige el ícono monocromo de TODOS los botones de la landing a
-  // la vez — repinta la tarjeta completa (para resaltar el nuevo ícono
-  // elegido), la secuencia de botones intercalados y el botón flotante, y
-  // sincroniza el cambio al backend.
-  function actualizarIconoBoton(){
-    repintarInsertarBotonCard();
-    seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
-    overlay.querySelector('#realPhoneBotonFlotante').innerHTML = realBotonFlotanteHtml(landing);
-    apiActualizarLanding(landing, { iconoBoton: landing.iconoBoton });
-  }
-  function wireIconoBotonPicker(){
-    const wrap = overlay.querySelector('#realAnimacionIconoWrap');
-    if(!wrap) return;
-    const trigger = wrap.querySelector('#realIconoBotonTrigger');
-    const dropdown = wrap.querySelector('#realIconoBotonDropdown');
-    if(trigger && dropdown){
-      trigger.onclick = ()=>{ dropdown.hidden = !dropdown.hidden; };
-    }
-    wrap.querySelectorAll('[data-icono-boton]').forEach(btn=>{
-      btn.onclick = ()=>{
-        landing.iconoBoton = btn.dataset.iconoBoton;
-        // El repintado de actualizarIconoBoton() arma el desplegable de
-        // nuevo con "hidden" puesto (cerrado) — no hace falta cerrarlo acá.
-        actualizarIconoBoton();
-      };
-    });
-  }
-  wireIconoBotonPicker();
-  // "Click afuera cierra el desplegable": puesto UNA sola vez sobre el
-  // overlay entero, en fase de captura (así se entera del click ANTES de que
-  // el resto de los handlers puedan frenar la propagación con
-  // stopPropagation(), como hace el cuadro del modal para no cerrarse solo).
-  // Sigue funcionando después de cualquier repintado porque busca el
-  // desplegable de nuevo en el DOM en cada click, en vez de guardar una
-  // referencia vieja.
-  overlay.addEventListener('click', (e)=>{
-    const dropdown = overlay.querySelector('#realIconoBotonDropdown');
-    if(!dropdown || dropdown.hidden) return;
-    if(e.target.closest('#realIconoBotonDropdown') || e.target.closest('#realIconoBotonTrigger')) return;
-    dropdown.hidden = true;
-  }, true);
+  wireResenasCard();
+  overlay._repintarResenasCard = repintarResenasCard; // el panel de Testimonios lo usa si esta landing está abierta
 
   // Tarjeta "Agregar Barra de Movimiento": repinta la barra en el teléfono y
   // la propia tarjeta, y sincroniza el cambio al backend.
@@ -6771,55 +7692,17 @@ function realVerLandingCompleta(landing){
     barraEl.innerHTML = realBarraHtml(landing);
   });
 
-  // La "×" sobre el botón "COMPRAR AHORA" ya insertado en el teléfono también
-  // lo quita — delegado sobre el contenedor fijo #realPhoneBotonFlotante (no
-  // se vuelve a re-enganchar porque el contenedor en sí nunca se reemplaza,
-  // solo su contenido de adentro).
+  // La "×" sobre el botón "REALIZAR PEDIDO" flotante ya insertado en el
+  // teléfono también lo quita — delegado sobre el contenedor fijo
+  // #realPhoneBotonFlotante (no se vuelve a re-enganchar porque el
+  // contenedor en sí nunca se reemplaza, solo su contenido de adentro).
+  // Pedido 10/09 (2): ya no hace falta escuchar texto/color acá — el botón
+  // flotante quedó fijo (ver realBotonFlotanteHtml).
   const flotanteEl = overlay.querySelector('#realPhoneBotonFlotante');
   flotanteEl.addEventListener('click', (e)=>{
     if(e.target.closest('[data-quitar-flotante]')){
       landing.botonFlotante = false;
       actualizarBotonFlotante();
-    }
-  });
-
-  // Mismo texto editable tocándolo (contenteditable) que los botones
-  // intercalados, pero acá se guarda en landing.botonFlotanteTexto — no hace
-  // falta repintar nada al guardar, el texto ya quedó escrito en pantalla.
-  flotanteEl.addEventListener('focusout', (e)=>{
-    const span = e.target.closest('[data-texto-flotante]');
-    if(!span) return;
-    landing.botonFlotanteTexto = span.textContent.trim();
-    apiActualizarLanding(landing, { botonFlotanteTexto: landing.botonFlotanteTexto });
-  });
-
-  // Mismo selector de color nativo que los botones intercalados — acá se
-  // guarda en landing.botonFlotanteColor / botonFlotanteColorTexto y sí hace
-  // falta repintar, porque el color de fondo del botón cambia.
-  flotanteEl.addEventListener('change', (e)=>{
-    const input = e.target.closest('[data-color-flotante]');
-    if(!input) return;
-    landing.botonFlotanteColor = input.value;
-    landing.botonFlotanteColorTexto = realColorTextoContraste(landing.botonFlotanteColor);
-    apiActualizarLanding(landing, { botonFlotanteColor: landing.botonFlotanteColor, botonFlotanteColorTexto: landing.botonFlotanteColorTexto });
-    flotanteEl.innerHTML = realBotonFlotanteHtml(landing);
-    // Mismo aviso de "aplicar a todos" que el color de los botones
-    // intercalados (ver seqEl "change" de data-color-boton más arriba).
-    if(landingCantidadBotones(landing) > 1){
-      mostrarConfirmacion({
-        titulo: 'Aplicar color a todos',
-        mensaje: '¿Aplicar este mismo color a TODOS los botones "COMPRAR AHORA" de esta landing (los demás intercalados y el flotante)?',
-        textoConfirmar: 'Sí, aplicar a todos',
-        textoCancelar: 'No, solo este',
-        icono: '🎨',
-        colorAccent: '#7c3aed',
-        onConfirm: ()=>{
-          aplicarColorBotonGlobal(landing, landing.botonFlotanteColor);
-          flotanteEl.innerHTML = realBotonFlotanteHtml(landing);
-          seqEl.innerHTML = realSecuenciaEditableHtml(landing, mostrarInsertarBoton);
-          apiActualizarLanding(landing, { items: landing.items, botonFlotanteColor: landing.botonFlotanteColor, botonFlotanteColorTexto: landing.botonFlotanteColorTexto });
-        },
-      });
     }
   });
 }
@@ -6853,17 +7736,31 @@ async function enviarLandingAShopify(landing, btnEl){
   btnEl.disabled = true;
   btnEl.textContent = '⏳ Enviando a Shopify…';
   try{
-    const secuencia = landing.items.map(item => item.tipo === 'boton_comprar'
-      ? { tipo: 'boton_comprar', texto: item.texto || undefined, color: item.color || undefined, colorTexto: item.colorTexto || undefined }
-      : { tipo: 'imagen', url: item.image });
+    const st = getState(currentProduct);
+    // Pedido 11/09: sección "Testimonios" en modo Personalizada — un item
+    // "resenas" es solo un marcador de posición (como "boton_comprar", no
+    // tiene foto propia), así que hay que excluirlo tanto de "imagenes"
+    // (donde antes se asumía que "todo lo que no es botón, es imagen") como
+    // de la lista que arma "secuencia".
+    const secuencia = landing.items.map(item => {
+      if(item.tipo === 'boton_comprar') return { tipo: 'boton_comprar', texto: item.texto || undefined, color: item.color || undefined, colorTexto: item.colorTexto || undefined };
+      if(item.tipo === 'resenas') return { tipo: 'resenas' };
+      return { tipo: 'imagen', url: item.image };
+    });
+    // Las reseñas reales son del PRODUCTO (se suben una sola vez y se
+    // reutilizan en cualquier landing de ese producto) — solo se mandan si
+    // esta landing puntual tiene el marcador "resenas" insertado en su
+    // secuencia Y el producto está en modo Personalizada.
+    const incluyeResenas = st.testimoniosModo === 'personalizada' && landing.items.some(item => item.tipo === 'resenas');
     const resp = await apiFetch(BACKEND_URL + '/shopify/publicar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nombreProducto: currentProduct,
         landingNum: landing.num,
-        imagenes: landing.items.filter(item => item.tipo !== 'boton_comprar').map(item => item.image),
+        imagenes: landing.items.filter(item => item.tipo !== 'boton_comprar' && item.tipo !== 'resenas').map(item => item.image),
         secuencia,
+        resenas: incluyeResenas ? (st.resenas || []) : undefined,
         botonFlotante: !!landing.botonFlotante,
         botonFlotanteTexto: landing.botonFlotanteTexto || undefined,
         botonFlotanteColor: landing.botonFlotanteColor || undefined,
@@ -7151,6 +8048,7 @@ function renderAll(){
   if(currentView === 'admin'){ cargarUsuariosAdmin(); return; }
   if(currentView === 'perfil'){ cargarPerfil(); return; }
   if(currentView === 'integraciones'){ cargarIntegraciones(); return; }
+  if(currentView === 'productmarker'){ renderProductMarker(); return; }
   // workspace
   document.getElementById('productTitle').textContent = currentProduct;
   if(currentProduct !== lastRenderedProduct){
@@ -8412,10 +9310,15 @@ async function cargarFotosProductoDesdeBackend(){
       const nombreProducto = fila.nombre_producto;
       if(!nombreProducto) return;
       const fotos = fila.fotos_producto_json;
-      if(!Array.isArray(fotos) || !fotos.some(f=>f)) return;
+      const tieneResenas = Array.isArray(fila.resenas_json) && fila.resenas_json.length > 0;
+      if((!Array.isArray(fotos) || !fotos.some(f=>f)) && !tieneResenas && !fila.testimonios_modo) return;
       if(!PRODUCTS.includes(nombreProducto)) PRODUCTS.push(nombreProducto);
       const st = getState(nombreProducto);
-      st.fotosProducto = [0,1,2].map(i=> fotos[i] || null);
+      if(Array.isArray(fotos) && fotos.some(f=>f)) st.fotosProducto = [0,1,2].map(i=> fotos[i] || null);
+      // Pedido 11/09: sección "Testimonios" en modo Personalizada — reseñas
+      // reales del producto (ver productos.service.ts, guardarResenas).
+      st.testimoniosModo = fila.testimonios_modo || 'plantilla';
+      st.resenas = Array.isArray(fila.resenas_json) ? fila.resenas_json : [];
     });
   }catch(err){
     console.error('No se pudieron cargar las fotos de producto guardadas:', err);
@@ -8432,6 +9335,9 @@ async function inicializarDesdeBackend(){
   await cargarHistorialDesdeBackend();
   await cargarLandingsDesdeBackend();
   await cargarFotosProductoDesdeBackend();
+  // Product Marker (pedido 17/09): si quedó un trabajo en curso de antes de
+  // cerrar la pestaña, retoma el polling solo — ver pmResumirSiHayTrabajoPendiente.
+  if(typeof pmResumirSiHayTrabajoPendiente === 'function') pmResumirSiHayTrabajoPendiente();
 }
 
 verificarSesionGuardada();
