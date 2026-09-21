@@ -1049,6 +1049,19 @@
      JS de autenticación más abajo (cerca de BACKEND_URL) para la lógica de
      mostrar/ocultar esto, el ojito de mostrar/ocultar contraseña, y entrar
      al taller. -->
+<!-- Aviso de "cargando" para el inicio de sesión único (SSO) desde MEC
+     Control: cubre el hueco entre que se esconde #authGate (ver el script
+     dentro de ese div, un poco más abajo) y que termina de canjear el pase
+     y mostrar el taller (#appRoot) — sin esto, en ese ratito no se veía nada
+     más que el fondo oscuro de la página. Pedido 21/09. Lo esconden
+     mostrarAuthGate() y ocultarAuthGate() más abajo, junto con la pantalla
+     de login normal, así que cubre tanto el caso de éxito como el de un
+     pase inválido/vencido. -->
+<div id="ssoLoading" style="display:none; position:fixed; inset:0; z-index:1000; background:var(--ink); flex-direction:column; align-items:center; justify-content:center; gap:16px; color:var(--paper); font-family:'IBM Plex Sans', sans-serif;">
+  <div style="width:36px; height:36px; border-radius:50%; border:3px solid rgba(245,241,228,0.18); border-top-color:var(--coral); animation:ssoSpin 0.8s linear infinite;"></div>
+  <div style="font-size:14px; color:var(--text-dim);">Entrando a tu cuenta…</div>
+</div>
+<style>@keyframes ssoSpin{ to{ transform:rotate(360deg); } }</style>
 <div id="authGate" class="auth-gate">
   <script>
     // Si el link con el que se abrió la página trae "?pase=..." (inicio de
@@ -1060,6 +1073,8 @@
     // encarga de volver a mostrarlo llamando a mostrarAuthGate().
     if (/[?&]pase=/.test(location.search)) {
       document.currentScript.parentElement.style.display = 'none';
+      var ssoLoadingEl = document.getElementById('ssoLoading');
+      if (ssoLoadingEl) ssoLoadingEl.style.display = 'flex';
     }
   </script>
 
@@ -5641,6 +5656,8 @@ async function apiFetch(url, opciones){
 }
 
 function mostrarAuthGate(mensajeError){
+  const ssoLoadingEl = document.getElementById('ssoLoading');
+  if(ssoLoadingEl) ssoLoadingEl.style.display = 'none';
   const appRoot = document.getElementById('appRoot');
   if(appRoot) appRoot.style.display = 'none';
   document.getElementById('authGate').style.display = 'flex';
@@ -5650,6 +5667,8 @@ function mostrarAuthGate(mensajeError){
 }
 
 function ocultarAuthGate(){
+  const ssoLoadingEl = document.getElementById('ssoLoading');
+  if(ssoLoadingEl) ssoLoadingEl.style.display = 'none';
   document.getElementById('authGate').style.display = 'none';
   document.getElementById('appRoot').style.display = 'flex';
 }
