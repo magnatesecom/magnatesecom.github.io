@@ -46,28 +46,20 @@
     display:flex; align-items:center; justify-content:center; font-size:13px;
   }
   .sidebar-toggle:hover{ color:var(--paper); }
-  /* Botón "Configuración" del topbar — reemplaza al viejo sidebar fijo
-     (pedido del jefe 22/09: el taller vive ahora empotrado dentro de MEC
-     Control, y un menú lateral aparte ya no tiene sentido ahí). Mismo menú
-     de siempre (Generador de Landing / Mis Landings / Integraciones), ahora
-     desplegable en vez de fijo. */
+  /* Menú del topbar — reemplaza al viejo sidebar fijo (pedido del jefe
+     22/09: el taller vive ahora empotrado dentro de MEC Control, y un menú
+     lateral aparte ya no tiene sentido ahí). Primero se probó como un botón
+     "Configuración" desplegable; después el jefe pidió mostrar los 3
+     ítems (Generador de Landing / Mis Landings / Integraciones) directo,
+     ya que sobraba espacio horizontal ahí — así que ahora es una fila de
+     pestañas, sin nada que desplegar. */
   .brand-logo-top{ height:26px; width:auto; max-width:120px; flex-shrink:0; object-fit:contain; }
-  .config-wrap{ position:relative; }
-  .config-btn{
-    display:flex; align-items:center; gap:8px;
-    padding:7px 14px; border-radius:var(--radius); border:1px solid var(--line-strong);
-    background:var(--ink-2); color:var(--text-dim); cursor:pointer; font-size:13px; font-weight:600;
-    flex-shrink:0; white-space:nowrap; font-family:'IBM Plex Sans', sans-serif;
+  .config-wrap{ display:flex; align-items:center; }
+  .config-wrap .nav-list{
+    display:flex; flex-direction:row; list-style:none; margin:0; padding:0; gap:6px;
   }
-  .config-btn:hover{ color:var(--paper); }
-  .config-btn .config-btn-arrow{ font-size:9px; color:var(--text-dimmer); }
-  .config-dropdown{
-    position:absolute; top:calc(100% + 10px); left:0; width:230px; z-index:60;
-    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:12px;
-    overflow:hidden; box-shadow:0 14px 34px rgba(0,0,0,0.14); padding:6px;
-  }
-  .config-dropdown .nav-list{ gap:2px; }
-  .config-dropdown .nav-item{ border-radius:8px; }
+  .config-wrap .nav-item{ padding:8px 14px; white-space:nowrap; }
+  .config-wrap .nav-item .arrow{ display:none; }
   .credits-pill{
     display:inline-flex; align-items:center; gap:8px;
     background:var(--mustard-dim); border:1px solid rgba(240,200,105,0.4);
@@ -1216,10 +1208,7 @@
     <!-- GLOBAL TOPBAR -->
     <div class="global-topbar">
       <button class="sidebar-toggle" id="sidebarToggle">☰</button>
-      <div class="config-wrap" id="configWrap" style="display:none;">
-        <button type="button" class="config-btn" id="configBtn">⚙ Configuración <span class="config-btn-arrow">▾</span></button>
-        <div class="config-dropdown" id="configDropdown" style="display:none;"></div>
-      </div>
+      <div class="config-wrap" id="configWrap" style="display:none;"></div>
       <div class="global-topbar-spacer"></div>
       <div class="user-chip-wrap">
         <div class="user-chip" id="userChip" title="Cuenta">
@@ -2548,14 +2537,10 @@ function goToView(view){
   renderAll();
 }
 
-function cerrarMenuConfiguracion(){
-  const d = document.getElementById('configDropdown');
-  if(d) d.style.display = 'none';
-}
-document.getElementById('navLanding').onclick = ()=> { goToView('home'); cerrarMenuConfiguracion(); };
-document.getElementById('navMisLandings').onclick = ()=> { goToView('mislandings'); cerrarMenuConfiguracion(); };
-document.getElementById('navIntegraciones').onclick = ()=> { goToView('integraciones'); cerrarMenuConfiguracion(); };
-document.getElementById('navProductMarker').onclick = ()=> { goToView('productmarker'); cerrarMenuConfiguracion(); };
+document.getElementById('navLanding').onclick = ()=> goToView('home');
+document.getElementById('navMisLandings').onclick = ()=> goToView('mislandings');
+document.getElementById('navIntegraciones').onclick = ()=> goToView('integraciones');
+document.getElementById('navProductMarker').onclick = ()=> goToView('productmarker');
 document.getElementById('backToHome').onclick = ()=> goToView('home');
 // Botón "☰" de siempre: colapsa/expande el sidebar fijo — solo existe (y
 // solo hace algo) para quien NO está en modo embebido, ver más abajo.
@@ -2563,14 +2548,6 @@ document.getElementById('sidebarToggle').onclick = ()=>{
   document.getElementById('sidebar').style.display =
     document.getElementById('sidebar').style.display === 'none' ? 'flex' : 'none';
 };
-// Botón "⚙ Configuración" del topbar: abre/cierra el menú — reemplaza al
-// sidebar SOLO en modo embebido (ver aplicarModoEmbebido()).
-const configDropdownEl = document.getElementById('configDropdown');
-document.getElementById('configBtn').addEventListener('click', (e)=>{
-  e.stopPropagation();
-  configDropdownEl.style.display = configDropdownEl.style.display === 'block' ? 'none' : 'block';
-});
-document.addEventListener('click', ()=>{ configDropdownEl.style.display = 'none'; });
 
 // ---------------------------------------------------------------------------
 // Modo "empotrado": cuando el taller se abre DENTRO de MEC Control (en un
@@ -2578,8 +2555,10 @@ document.addEventListener('click', ()=>{ configDropdownEl.style.display = 'none'
 // con "&embed=1"), no tiene sentido mostrar el sidebar fijo de siempre: ya
 // está adentro de la interfaz de otra plataforma, con su propio menú al
 // costado. Por eso ahí el menú (Generador de Landing / Mis Landings /
-// Integraciones) se muda al botón "⚙ Configuración" de arriba, y el
-// sidebar se esconde entero.
+// Integraciones) se muda arriba, al topbar — primero se probó como un botón
+// "Configuración" desplegable, y después el jefe pidió mostrar los 3 ítems
+// directo (sobraba espacio horizontal ahí), así que quedó como una fila de
+// pestañas fija, sin nada que desplegar — y el sidebar se esconde entero.
 //
 // Quien entra por el login normal de siempre de Creadora de Landing (sin
 // pasar por MEC Control) NUNCA activa esto — sigue viendo el taller de
@@ -2594,11 +2573,14 @@ function esModoEmbebido(){
 function aplicarModoEmbebido(){
   if(!esModoEmbebido()) return;
   const sidebarEl = document.getElementById('sidebar');
+  const sidebarToggleEl = document.getElementById('sidebarToggle');
   const navListEl = document.querySelector('#sidebar .nav-list');
-  const configDropdown = document.getElementById('configDropdown');
   const configWrap = document.getElementById('configWrap');
-  if(navListEl && configDropdown) configDropdown.appendChild(navListEl);
+  if(navListEl && configWrap) configWrap.appendChild(navListEl);
   if(sidebarEl) sidebarEl.style.display = 'none';
+  // El botón "☰" solo servía para colapsar el sidebar — sin sidebar, no
+  // tiene nada que hacer acá, así que también se esconde.
+  if(sidebarToggleEl) sidebarToggleEl.style.display = 'none';
   if(configWrap) configWrap.style.display = 'flex';
 }
 aplicarModoEmbebido();
