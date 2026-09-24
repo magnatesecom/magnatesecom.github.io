@@ -2582,6 +2582,14 @@ function aplicarModoEmbebido(){
   // tiene nada que hacer acá, así que también se esconde.
   if(sidebarToggleEl) sidebarToggleEl.style.display = 'none';
   if(configWrap) configWrap.style.display = 'flex';
+  // Pedido 24/09: la "pastilla" de cuenta (avatar + nombre + correo, arriba
+  // a la derecha) tampoco debe verse cuando el taller vive empotrado dentro
+  // de MEC Control — esa cuenta ya se ve arriba en la propia barra de MEC
+  // Control, y repetirla acá solo estorba. Quien entra por el login directo
+  // de Creadora de Landing (sin pasar por MEC Control) la sigue viendo
+  // exactamente igual que siempre.
+  const userChipWrapEl = document.querySelector('.user-chip-wrap');
+  if(userChipWrapEl) userChipWrapEl.style.display = 'none';
 }
 aplicarModoEmbebido();
 
