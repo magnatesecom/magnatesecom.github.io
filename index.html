@@ -1192,7 +1192,7 @@
       <li class="nav-item" id="navLanding"><span class="ico">🗂</span> Generador de Landing <span class="arrow">▸</span></li>
       <li class="nav-item" id="navMisLandings"><span class="ico">📱</span> Mis Landings</li>
       <li class="nav-item" id="navIntegraciones"><span class="ico">🔗</span> Integraciones</li>
-      <li class="nav-item" id="navProductMarker" style="display:none;" title="Product Marker: todavía en desarrollo, escondido del menú a propósito hasta que esté listo."><span class="ico">🏷️</span> Product Marker</li>
+      <li class="nav-item" id="navProductMarker"><span class="ico">🏷️</span> Product Marker</li>
     </ul>
 
     <div class="credits-box">
@@ -5909,6 +5909,55 @@ async function enviarAuth(){
 }
 
 
+// Pedido 27/09 ("las plantillas se están demorando mucho en abrir... quiero
+// que cuando la persona entre allí ya estén activas, no dormidas"): cada
+// tarjeta de la galería de plantillas (Hero, Oferta, Beneficios, etc. — ver
+// *_REAL_IMAGES más arriba) es un <img> apuntando a un archivo real
+// (~281 fotos en total, ~9 MB entre todas). El navegador recién pide cada
+// una la PRIMERA vez que esa pestaña se pinta en pantalla — por eso se ven
+// "dormidas" (el cuadro oscuro sin nada, como en la captura que mandó
+// Norbey) unos segundos hasta que cada imagen individual termina de bajar,
+// sobre todo si la persona entra a una pestaña que todavía no había abierto
+// en esta sesión del navegador.
+//
+// Esto las precarga en segundo plano ni bien la persona entra al taller —
+// mismo espíritu que la precarga de Creadora de Landing en MEC Control
+// (CreadoraLandingFrame.tsx) — para que cuando de verdad abra esa pestaña
+// el navegador ya las tenga en su caché y aparezcan de una, sin tocar en
+// nada cómo se arman o se muestran las tarjetas (renderTmGrid sigue
+// funcionando exactamente igual que antes).
+//
+// Sin agregar ningún <img> al documento (no se toca el layout ni se ve nada
+// en pantalla) — solo se le pide el archivo al navegador para que quede
+// guardado en su caché normal. Y de a lotes de 6 (el máximo de pedidos que
+// la mayoría de los navegadores hace a la vez contra un mismo sitio), con
+// requestIdleCallback (setTimeout de respaldo para Safari, que no lo tiene)
+// para que arranque recién cuando el navegador esté libre — nunca compite
+// por ancho de banda con lo que la persona sí está mirando en ese momento.
+function precargarImagenesDePlantillas(){
+  const todasLasImagenes = [
+    ANTESDESPUES_REAL_IMAGES, LOGISTICA_REAL_IMAGES, OFERTA_REAL_IMAGES,
+    BENEFICIOS_REAL_IMAGES, TABLA_REAL_IMAGES, AUTORIDAD_REAL_IMAGES,
+    TESTIMONIOS_REAL_IMAGES, MODOUSO_REAL_IMAGES, FAQ_REAL_IMAGES, HERO_REAL_IMAGES,
+  ].flatMap(mapa => Object.values(mapa || {}));
+
+  const precargarLote = (urls, indice) => {
+    const lote = urls.slice(indice, indice + 6);
+    if(lote.length === 0) return;
+    lote.forEach(url => { const img = new Image(); img.src = url; });
+    if(indice + 6 < urls.length){
+      setTimeout(() => precargarLote(urls, indice + 6), 250);
+    }
+  };
+
+  const arrancar = () => precargarLote(todasLasImagenes, 0);
+  if(typeof requestIdleCallback === 'function'){
+    requestIdleCallback(arrancar, { timeout: 4000 });
+  } else {
+    setTimeout(arrancar, 1500);
+  }
+}
+
 // Deja entrar al taller ya con la sesión confirmada: oculta la pantalla de
 // entrada, pinta el correo (y nombre, si lo tiene) en la esquina, y recién
 // ahí dispara la carga de todo lo guardado en el backend (antes de esto no
@@ -5920,6 +5969,7 @@ async function entrarAlTaller(usuario){
   actualizarUserChip(usuario);
   goToView('home');
   await inicializarDesdeBackend();
+  precargarImagenesDePlantillas();
 }
 
 // Pedido 15/09: inicio de sesión único (SSO) — si el link con el que se abrió
@@ -5935,9 +5985,37 @@ async function intentarEntrarConPaseSso(){
   const params = new URLSearchParams(window.location.search);
   const pase = params.get('pase');
   if(!pase) return false;
+  // El correo viaja aparte del pase, sin nada secreto — solo sirve para
+  // compararlo acá abajo con el de una sesión ya guardada. No reemplaza al
+  // pase como forma de entrar, solo evita canjearlo cuando no hace falta.
+  const correoEntrante = params.get('correo');
   params.delete('pase');
+  params.delete('correo');
   const queryLimpio = params.toString();
   history.replaceState(null, '', window.location.pathname + (queryLimpio ? '?' + queryLimpio : '') + window.location.hash);
+
+  // Pedido 24/09: si la persona ya está conectada acá con la MISMA cuenta
+  // que trae este link (por ejemplo, salió y volvió a entrar al módulo
+  // dentro de MEC Control), no tiene sentido gastar un viaje al backend
+  // canjeando un pase nuevo — ya está adentro. Sin esto, cada entrada y
+  // salida repetía el "Entrando a tu cuenta…" aunque la sesión anterior
+  // siguiera totalmente válida.
+  const tokenGuardado = obtenerTokenGuardado();
+  const correoGuardado = obtenerEmailGuardado();
+  if(tokenGuardado && correoEntrante && correoGuardado && correoEntrante.toLowerCase() === correoGuardado.toLowerCase()){
+    try{
+      const resp = await fetch(BACKEND_URL + '/auth/me', { headers: { 'Authorization': 'Bearer ' + tokenGuardado } });
+      if(resp.ok){
+        const data = await resp.json();
+        await entrarAlTaller({ ...data, email: data.email || correoGuardado });
+        return true;
+      }
+    }catch{}
+    // Si la sesión guardada ya no sirve (venció, la borraron, etc.), sigue
+    // abajo y canjea el pase nuevo como respaldo — igual que si no hubiera
+    // habido ninguna sesión guardada.
+  }
+
   try{
     const resp = await fetch(BACKEND_URL + '/auth/sso/entrar', {
       method: 'POST',
