@@ -702,6 +702,35 @@
   .shopify-datos-row:last-child{ border-bottom:none; }
   .shopify-datos-row span{ color:var(--text-dim); }
   .shopify-datos-row b{ color:var(--paper); font-family:'IBM Plex Mono', monospace; font-weight:600; text-align:right; }
+  /* Fix 28/09 (varias tiendas por usuario): cada tienda conectada se pinta
+     como su propia tarjeta + panel de datos + botón desconectar, uno debajo
+     del otro dentro de este bloque — mismas piezas de siempre
+     (.shopify-store-card / .shopify-datos-panel), ahora repetidas por tienda. */
+  .shopify-tienda-bloque{ margin-bottom:14px; }
+  .shopify-tienda-bloque .shopify-datos-btn.abierto-solo-mostrar{ display:none; }
+
+  /* ---------- Selector de tienda al "Enviar a Shopify" (varias tiendas) ---------- */
+  .modal-elegir-tienda-overlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9000;
+    align-items:center; justify-content:center; padding:20px; box-sizing:border-box;
+  }
+  .modal-elegir-tienda-overlay.open{ display:flex; }
+  .modal-elegir-tienda{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:12px; padding:22px;
+    max-width:420px; width:100%; box-sizing:border-box; max-height:80vh; overflow-y:auto;
+  }
+  .modal-elegir-tienda h3{ font-size:15.5px; font-weight:700; margin:0 0 4px 0; }
+  .modal-elegir-tienda p{ font-size:12.5px; color:var(--text-dim); margin:0 0 16px 0; }
+  .elegir-tienda-opcion{
+    display:flex; align-items:center; gap:12px; width:100%; background:rgba(0,0,0,0.16); border:1px solid var(--line);
+    border-radius:9px; padding:12px 14px; margin-bottom:10px; box-sizing:border-box; cursor:pointer; text-align:left;
+    color:var(--paper); font-family:'IBM Plex Sans';
+  }
+  .elegir-tienda-opcion:hover{ border-color:var(--coral); background:rgba(212,169,53,0.08); }
+  .elegir-tienda-opcion .shopify-store-thumb{ width:40px; height:40px; font-size:18px; }
+  .elegir-tienda-opcion b{ display:block; font-size:13.5px; font-weight:700; }
+  .elegir-tienda-opcion span{ font-size:11.5px; color:var(--text-dim); }
+  .modal-elegir-tienda-cancelar{ width:100%; margin-top:4px; }
 
   .plantilla-row-h{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .field-label-sm{ font-size:12px; font-weight:700; }
@@ -1368,26 +1397,15 @@
           <span class="integ-badge-tienda" id="integShopifyBadgeTienda" style="display:none;">🟢 <span id="integShopifyBadgeTiendaTexto">1 tienda</span></span>
         </div>
 
-        <div id="integShopifyConectado" style="display:none;">
-          <div class="shopify-store-card">
-            <div class="shopify-store-thumb">🛍</div>
-            <div class="shopify-store-info">
-              <div class="shopify-store-name" id="integShopifyNombreTienda"></div>
-              <div class="shopify-store-domain-row">
-                <span class="shopify-store-dot"></span>
-                <span id="integShopifyDominioTexto"></span>
-              </div>
-            </div>
-            <button type="button" class="btn btn-ghost shopify-datos-btn" id="integShopifyDatosBtn">📄 Datos de la tienda</button>
-          </div>
-          <div class="shopify-datos-panel" id="integShopifyDatosPanel">
-            <div class="shopify-datos-row"><span>ID de Cliente</span><b id="integShopifyClientIdTexto"></b></div>
-            <div class="shopify-datos-row"><span>Secreto guardado</span><b id="integShopifyTokenTexto"></b></div>
-          </div>
-          <button type="button" class="btn btn-ghost" id="integShopifyDesconectarBtn">Desconectar</button>
-        </div>
+        <!-- Fix 28/09 (varias tiendas por usuario): acá va UNA tarjeta por
+             cada tienda conectada (armadas en JS, ver renderEstadoShopify) —
+             antes solo se podía tener una, ahora la lista puede tener
+             varias. El formulario de abajo queda SIEMPRE visible (no se
+             esconde al conectar la primera) para poder agregar más. -->
+        <div id="integShopifyListaTiendas"></div>
 
         <div id="integShopifyFormWrap">
+          <p id="integShopifyFormTitulo" class="home-sub" style="margin:0 0 14px 0; display:none;">Conectar otra tienda</p>
           <button type="button" class="help-toggle" id="shopifyHelpToggle">
             <span class="help-toggle-icon">ⓘ</span>
             <span>¿Cómo obtener las credenciales de Shopify?</span>
@@ -1432,6 +1450,8 @@
             </div>
           </div>
           <div id="integShopifyError" class="auth-error" style="display:none;"></div>
+          <label class="auth-label">Nombre para identificarla (opcional)</label>
+          <input type="text" class="auth-input" id="integShopifyNombre" placeholder="Ej: Mi tienda principal" autocomplete="off" style="padding-left:14px; margin-bottom:16px;">
           <label class="auth-label">Dominio de la tienda</label>
           <input type="text" class="auth-input" id="integShopifyDominio" placeholder="mi-tienda.myshopify.com" autocomplete="off" style="padding-left:14px; margin-bottom:16px;">
           <label class="auth-label">Client ID</label>
@@ -2019,6 +2039,21 @@
       <button class="modal-btn modal-btn-cancel" id="guardarPlantillasCancelBtn">Cancelar</button>
       <button class="modal-btn modal-btn-create" id="guardarPlantillasConfirmBtn">Guardar</button>
     </div>
+  </div>
+</div>
+
+<!-- Fix 28/09 (varias tiendas por usuario): al tocar "Enviar a Shopify" con
+     más de una tienda conectada, hay que elegir a cuál — este modal se
+     arma/llena en JS (ver elegirTiendaShopifyParaPublicar) justo antes de
+     publicar. Con 0 o 1 tienda conectada nunca se muestra: el backend
+     resuelve solo o avisa que hace falta conectar una (ver
+     shopify.controller.ts). -->
+<div class="modal-elegir-tienda-overlay" id="elegirTiendaOverlay">
+  <div class="modal-elegir-tienda">
+    <h3>¿A cuál tienda publicar?</h3>
+    <p>Tenés más de una tienda conectada — elegí a dónde enviar esta landing.</p>
+    <div id="elegirTiendaOpciones"></div>
+    <button type="button" class="btn btn-ghost modal-elegir-tienda-cancelar" id="elegirTiendaCancelarBtn">Cancelar</button>
   </div>
 </div>
 
@@ -3245,24 +3280,84 @@ function nombreTiendaDesdeDominio(dominio){
   return sub.split(/[-_]+/).filter(Boolean).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
 }
 
-function renderEstadoShopify(data){
-  const conectado = !!data.shopifyConectado;
-  document.getElementById('integShopifyConectado').style.display = conectado ? 'block' : 'none';
-  document.getElementById('integShopifyFormWrap').style.display = conectado ? 'none' : 'block';
-  document.getElementById('integShopifyBadgeTienda').style.display = conectado ? 'inline-flex' : 'none';
-  if(conectado){
-    document.getElementById('integShopifyDominioTexto').textContent = data.shopifyStoreDomain || '';
-    document.getElementById('integShopifyNombreTienda').textContent = nombreTiendaDesdeDominio(data.shopifyStoreDomain);
-    document.getElementById('integShopifyClientIdTexto').textContent = data.shopifyClientId || '';
-    document.getElementById('integShopifyTokenTexto').textContent = data.shopifyClientSecretParcial || '';
-    document.getElementById('integShopifyDatosPanel').classList.remove('open');
-    document.getElementById('integShopifyDatosBtn').textContent = '📄 Datos de la tienda';
-  } else {
-    document.getElementById('integShopifyDominio').value = '';
-    document.getElementById('integShopifyClientId').value = '';
-    document.getElementById('integShopifyToken').value = '';
-  }
+// Fix 28/09 (varias tiendas por usuario): escapa texto antes de meterlo en
+// innerHTML al armar las tarjetas de tiendas más abajo — el nombre/dominio
+// son datos que el propio usuario escribió, pero mejor no confiar ciegamente
+// al inyectarlos como HTML.
+function escaparHtmlIntegraciones(texto){
+  const d = document.createElement('div');
+  d.textContent = String(texto == null ? '' : texto);
+  return d.innerHTML;
 }
+
+// data.shopifyTiendas es la lista completa que ahora devuelve el backend
+// (ver integraciones.service.ts, listarTiendasShopify) — antes había una
+// sola tienda por usuario, ahora puede haber varias, cada una con su propio
+// shopKey. El formulario de conectar queda SIEMPRE visible (nunca se
+// esconde), así que agregar una segunda o tercera tienda es tan simple como
+// completar el formulario de nuevo.
+let ultimasTiendasShopify = [];
+function renderEstadoShopify(data){
+  const tiendas = Array.isArray(data.shopifyTiendas) ? data.shopifyTiendas : [];
+  ultimasTiendasShopify = tiendas;
+  const hay = tiendas.length > 0;
+
+  const badge = document.getElementById('integShopifyBadgeTienda');
+  badge.style.display = hay ? 'inline-flex' : 'none';
+  document.getElementById('integShopifyBadgeTiendaTexto').textContent = tiendas.length === 1 ? '1 tienda' : `${tiendas.length} tiendas`;
+
+  document.getElementById('integShopifyFormTitulo').style.display = hay ? 'block' : 'none';
+  document.getElementById('integShopifyConectarBtn').textContent = hay ? '+ Conectar otra tienda' : 'Conectar tienda';
+
+  const lista = document.getElementById('integShopifyListaTiendas');
+  lista.innerHTML = tiendas.map((tienda) => {
+    const nombre = tienda.nombre || nombreTiendaDesdeDominio(tienda.storeDomain);
+    return `
+      <div class="shopify-tienda-bloque" data-shop-key="${escaparHtmlIntegraciones(tienda.shopKey)}">
+        <div class="shopify-store-card">
+          <div class="shopify-store-thumb">🛍</div>
+          <div class="shopify-store-info">
+            <div class="shopify-store-name">${escaparHtmlIntegraciones(nombre)}</div>
+            <div class="shopify-store-domain-row">
+              <span class="shopify-store-dot"></span>
+              <span>${escaparHtmlIntegraciones(tienda.storeDomain)}</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-ghost shopify-datos-btn" data-accion="datos-tienda">📄 Datos de la tienda</button>
+        </div>
+        <div class="shopify-datos-panel">
+          <div class="shopify-datos-row"><span>ID de Cliente</span><b>${escaparHtmlIntegraciones(tienda.clientId)}</b></div>
+          <div class="shopify-datos-row"><span>Secreto guardado</span><b>${escaparHtmlIntegraciones(tienda.clientSecretParcial)}</b></div>
+        </div>
+        <button type="button" class="btn btn-ghost" data-accion="desconectar-tienda" style="margin-bottom:14px;">Desconectar esta tienda</button>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('integShopifyDominio').value = '';
+  document.getElementById('integShopifyClientId').value = '';
+  document.getElementById('integShopifyToken').value = '';
+  document.getElementById('integShopifyNombre').value = '';
+}
+
+// Delegado: las tarjetas de arriba se arman de nuevo cada vez que cambia la
+// lista (innerHTML), así que un solo listener en el contenedor alcanza para
+// todos los botones de todas las tiendas, presentes y futuras.
+document.getElementById('integShopifyListaTiendas').addEventListener('click', (ev) => {
+  const btnDatos = ev.target.closest('[data-accion="datos-tienda"]');
+  const btnDesconectar = ev.target.closest('[data-accion="desconectar-tienda"]');
+  if(btnDatos){
+    const panel = btnDatos.closest('.shopify-tienda-bloque').querySelector('.shopify-datos-panel');
+    const abrir = !panel.classList.contains('open');
+    panel.classList.toggle('open', abrir);
+    btnDatos.textContent = abrir ? '✕ Ocultar datos' : '📄 Datos de la tienda';
+    return;
+  }
+  if(btnDesconectar){
+    const bloque = btnDesconectar.closest('.shopify-tienda-bloque');
+    desconectarShopify(bloque.getAttribute('data-shop-key'));
+  }
+});
 
 function renderEstadoFal(data){
   const conectado = !!data.falConectado;
@@ -3279,6 +3374,7 @@ async function conectarShopify(){
   const storeDomain = document.getElementById('integShopifyDominio').value.trim();
   const clientId = document.getElementById('integShopifyClientId').value.trim();
   const clientSecret = document.getElementById('integShopifyToken').value.trim();
+  const nombre = document.getElementById('integShopifyNombre').value.trim();
   const err = document.getElementById('integShopifyError');
   err.style.display = 'none';
   if(!storeDomain || !clientId || !clientSecret){
@@ -3294,13 +3390,16 @@ async function conectarShopify(){
     const resp = await apiFetch(BACKEND_URL + '/integraciones/shopify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storeDomain, clientId, clientSecret }),
+      body: JSON.stringify({ storeDomain, clientId, clientSecret, nombre: nombre || undefined }),
     });
     const data = await resp.json().catch(()=> ({}));
     if(!resp.ok){
       throw new Error(data?.message || 'No se pudo conectar la tienda.');
     }
-    renderEstadoShopify(data);
+    // El backend devuelve directo la lista de tiendas (ver
+    // integraciones.service.ts, guardarShopify) — no el objeto completo de
+    // obtener(), así que se arma acá el mismo shape que espera renderEstadoShopify.
+    renderEstadoShopify({ shopifyTiendas: data });
   }catch(e){
     err.textContent = e?.message || 'No se pudo conectar la tienda.';
     err.style.display = 'block';
@@ -3310,22 +3409,24 @@ async function conectarShopify(){
   }
 }
 
-async function desconectarShopify(){
-  if(!confirm('¿Desconectar tu tienda de Shopify? "Enviar a Shopify" va a dejar de funcionar hasta que la vuelvas a conectar.')) return;
-  const btn = document.getElementById('integShopifyDesconectarBtn');
-  const original = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ Desconectando…';
+// Fix 28/09 (varias tiendas por usuario): ahora recibe CUÁL tienda
+// desconectar (su shopKey) — lo llama el botón "Desconectar esta tienda" de
+// cada tarjeta (ver el listener delegado en integShopifyListaTiendas).
+async function desconectarShopify(shopKey){
+  const tienda = ultimasTiendasShopify.find(t => t.shopKey === shopKey);
+  const nombreTienda = tienda ? (tienda.nombre || tienda.storeDomain) : 'esta tienda';
+  if(!confirm(`¿Desconectar "${nombreTienda}"? Las landings que apunten a esa tienda van a dejar de poder publicarse ahí hasta que la vuelvas a conectar.`)) return;
   try{
-    const resp = await apiFetch(BACKEND_URL + '/integraciones/shopify', { method: 'DELETE' });
+    const resp = await apiFetch(BACKEND_URL + '/integraciones/shopify', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shopKey }),
+    });
     const data = await resp.json().catch(()=> ({}));
     if(!resp.ok) throw new Error(data?.message || 'No se pudo desconectar la tienda.');
-    renderEstadoShopify(data);
+    renderEstadoShopify({ shopifyTiendas: data });
   }catch(e){
     alert(e?.message || 'No se pudo desconectar la tienda.');
-  }finally{
-    btn.disabled = false;
-    btn.textContent = original;
   }
 }
 
@@ -3382,16 +3483,10 @@ async function desconectarFal(){
 }
 
 document.getElementById('integShopifyConectarBtn').onclick = conectarShopify;
-document.getElementById('integShopifyDesconectarBtn').onclick = desconectarShopify;
-// Botón "Datos de la tienda" en la tarjeta de la tienda conectada — muestra
-// u oculta el ID de Cliente y el secreto guardado (nunca el secreto completo).
-document.getElementById('integShopifyDatosBtn').onclick = ()=>{
-  const panel = document.getElementById('integShopifyDatosPanel');
-  const btn = document.getElementById('integShopifyDatosBtn');
-  const abrir = !panel.classList.contains('open');
-  panel.classList.toggle('open', abrir);
-  btn.textContent = abrir ? '✕ Ocultar datos' : '📄 Datos de la tienda';
-};
+// Fix 28/09 (varias tiendas por usuario): "Datos de la tienda" y
+// "Desconectar" de cada tarjeta ya no son botones fijos en el HTML — se
+// arman de nuevo por cada tienda en renderEstadoShopify(), y su clic se
+// maneja con el listener delegado en integShopifyListaTiendas más arriba.
 // Panel desplegable "¿Cómo obtener las credenciales de Shopify?" — arranca
 // cerrado, se abre/cierra con cada clic (nunca se cierra solo).
 document.getElementById('shopifyHelpToggle').onclick = ()=>{
@@ -7903,6 +7998,58 @@ function obtenerPrecioParaShopify(){
 // "+" en la vista previa) para que el backend los dibuje en esa misma posición dentro
 // de la landing publicada — "imagenes" se manda además, sola, para no romper la subida
 // a la Multimedia del producto ni a clientes/versiones viejas del backend.
+// Fix 28/09 (varias tiendas por usuario): antes de publicar, si el usuario
+// tiene más de una tienda de Shopify conectada, le pregunta a cuál — trae la
+// lista fresca del backend (no confía en una lista vieja cacheada de una
+// visita anterior a "Integraciones") para no ofrecer opciones desactualizadas.
+// Devuelve: undefined si no hace falta elegir (0 o 1 tienda — el backend
+// resuelve solo, o avisa que falta conectar una si no hay ninguna), el
+// shopKey elegido, o null si el usuario canceló el selector.
+async function elegirTiendaShopifyParaPublicar(){
+  let tiendas = [];
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/integraciones', { method: 'GET' });
+    const data = await resp.json().catch(()=> ({}));
+    tiendas = Array.isArray(data?.shopifyTiendas) ? data.shopifyTiendas : [];
+  }catch{
+    return undefined; // si falla esta consulta, se intenta publicar igual — el backend da el error real si hace falta.
+  }
+  if(tiendas.length <= 1) return undefined;
+
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('elegirTiendaOverlay');
+    const opciones = document.getElementById('elegirTiendaOpciones');
+    const cancelarBtn = document.getElementById('elegirTiendaCancelarBtn');
+    opciones.innerHTML = tiendas.map((t) => {
+      const nombre = t.nombre || nombreTiendaDesdeDominio(t.storeDomain);
+      return `
+        <button type="button" class="elegir-tienda-opcion" data-shop-key="${escaparHtmlIntegraciones(t.shopKey)}">
+          <span class="shopify-store-thumb">🛍</span>
+          <span style="flex:1; min-width:0;">
+            <b>${escaparHtmlIntegraciones(nombre)}</b>
+            <span>${escaparHtmlIntegraciones(t.storeDomain)}</span>
+          </span>
+        </button>
+      `;
+    }).join('');
+    const cerrar = (valor) => {
+      overlay.classList.remove('open');
+      opciones.removeEventListener('click', onClickOpcion);
+      cancelarBtn.removeEventListener('click', onCancelar);
+      resolve(valor);
+    };
+    const onClickOpcion = (ev) => {
+      const btn = ev.target.closest('.elegir-tienda-opcion');
+      if(!btn) return;
+      cerrar(btn.getAttribute('data-shop-key'));
+    };
+    const onCancelar = () => cerrar(null);
+    opciones.addEventListener('click', onClickOpcion);
+    cancelarBtn.addEventListener('click', onCancelar);
+    overlay.classList.add('open');
+  });
+}
+
 async function enviarLandingAShopify(landing, btnEl){
   const original = btnEl.textContent;
   const { precio, precioComparacion } = obtenerPrecioParaShopify();
@@ -7910,6 +8057,8 @@ async function enviarLandingAShopify(landing, btnEl){
     const seguir = confirm('Este producto no tiene un precio guardado en la Ficha Técnica (Oferta → Precio 1).\n\nSe va a crear en Shopify con precio $0.00 — puedes editarlo después ahí mismo.\n\n¿Quieres continuar de todas formas?');
     if(!seguir) return;
   }
+  const shopKeyElegido = await elegirTiendaShopifyParaPublicar();
+  if(shopKeyElegido === null) return; // el usuario canceló el selector de tienda
   btnEl.disabled = true;
   btnEl.textContent = '⏳ Enviando a Shopify…';
   try{
@@ -7933,6 +8082,7 @@ async function enviarLandingAShopify(landing, btnEl){
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        shopKey: shopKeyElegido || undefined,
         nombreProducto: currentProduct,
         landingNum: landing.num,
         imagenes: landing.items.filter(item => item.tipo !== 'boton_comprar' && item.tipo !== 'resenas').map(item => item.image),
