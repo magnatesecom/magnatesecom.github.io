@@ -5632,7 +5632,11 @@ function wireResenasPanel(st){
         const subeResp = await apiFetch(BACKEND_URL + '/ia/imagenes/subir-foto-producto', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dataUri }),
+          // Fix 30/09: `tipo: 'resena'` le dice al backend que comprima esta
+          // foto antes de guardarla (a diferencia de la foto de Imagen 1/2/3,
+          // que usa este mismo endpoint sin este campo y se sube sin tocar
+          // porque se la manda a la IA como referencia exacta del producto).
+          body: JSON.stringify({ dataUri, tipo: 'resena' }),
         });
         const subeData = await subeResp.json().catch(()=> ({}));
         if(!subeResp.ok || !subeData.url) throw new Error(subeData?.message || 'No se pudo subir la foto.');
