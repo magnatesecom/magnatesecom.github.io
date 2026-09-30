@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>
+// Marcador para la extensión de navegador "Product Marker" (ver
+// product-marker-extension/content-puente-taller.js) — se fija ACÁ, lo más
+// arriba posible en <head>, antes de que corra cualquier otro script, para
+// que el content script (que se inyecta cuando la página ya está en reposo,
+// "document_idle") lo encuentre siempre puesto a tiempo. Sin este marcador
+// el content script no hace nada en esta página, aunque el manifiesto de la
+// extensión declare este dominio — es justamente lo que evita que la
+// extensión "escuche" en cualquier otra página que no sea este taller de
+// verdad (ver la nota grande en content-puente-taller.js).
+window.CREADORA_LANDING_TALLER = true;
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ecom Magnates</title>
@@ -3511,6 +3523,103 @@ document.getElementById('integFalDesconectarBtn').onclick = desconectarFal;
   });
 });
 
+// ---------------- PUENTE CON LA EXTENSIÓN "Product Marker" (28/09) ----------------
+// Si el estudiante tiene instalada la extensión de navegador (ver
+// product-marker-extension/), Product Marker puede pedirle a ELLA que lea la
+// página del producto en segundo plano, en vez de pedírsela al servidor.
+// Esto importa en especial para Amazon: el servidor de Railway lee esa
+// página desde la IP de un centro de datos, que Amazon bloquea más agresivo
+// (ver el aviso grande en importar-producto.service.ts, aplicarSigilosBasicos)
+// — la extensión, en cambio, abre esa página con el navegador DE VERDAD del
+// estudiante, con su IP de casa, así que a Amazon no le queda forma de
+// distinguirla de cualquier persona navegando normal.
+//
+// Si la extensión NO está instalada, o si por lo que sea no logra leer la
+// página a tiempo, Product Marker sigue funcionando exactamente igual que
+// hasta ahora (pidiéndole la página al servidor, POST /por-link) — esto es
+// una MEJORA cuando está disponible, nunca un requisito para poder usar
+// Product Marker. El "apretón de manos" (ping/pong) y el pedido de scrapeo
+// viajan como window.postMessage porque la extensión y esta página son
+// mundos separados (content-puente-taller.js del lado de la extensión).
+const PM_EXT_TIMEOUT_PING_MS = 400;
+// Fix 30/09: subido de 30000 a 38000, en línea con el nuevo TIMEOUT_TOTAL_MS
+// (32000) de background.js en la extensión — este número siempre tiene que
+// quedar por encima de ese, si no el taller se rinde y cae al camino viejo
+// del servidor antes de que la extensión termine de leer las reseñas reales.
+const PM_EXT_TIMEOUT_SCRAPE_MS = 38000;
+// Mismo espíritu que PM_PATRONES_TIENDA_SOPORTADA de más abajo, pero acotado
+// a las tiendas para las que la extensión YA TIENE un scraper propio
+// (content-aliexpress.js, content-amazon.js) — Temu todavía no, así que para
+// Temu Product Marker sigue derecho al camino del servidor aunque la
+// extensión esté instalada.
+const PM_EXT_PATRONES_SOPORTADOS = [
+  /^https:\/\/([a-z]{2,3}\.)?aliexpress\.com\/item\//i,
+  /^https:\/\/(?:www\.)?amazon\.[a-z.]{2,8}\/(?:[^/?#]+\/)*(?:dp|gp\/product)\/[A-Z0-9]{10}(?:[/?]|$)/i,
+];
+function pmLinkSoportadoPorExtension(link){
+  return PM_EXT_PATRONES_SOPORTADOS.some(regex => regex.test(link));
+}
+
+let pmExtensionDetectada = null; // null = todavía no se probó esta sesión
+
+// Le pregunta a la extensión (si está instalada) si está ahí — se cachea el
+// resultado por sesión de pestaña para no repetir el ida-y-vuelta de 400ms
+// en cada importación.
+function pmDetectarExtension(){
+  if(pmExtensionDetectada !== null) return Promise.resolve(pmExtensionDetectada);
+  return new Promise((resolve)=>{
+    let resuelto = false;
+    const onMensaje = (evento)=>{
+      if(evento.source !== window) return;
+      const m = evento.data;
+      if(!m || m.origen !== 'CREADORA_LANDING_PM_EXT' || m.tipo !== 'PM_EXT_PONG') return;
+      if(resuelto) return;
+      resuelto = true;
+      window.removeEventListener('message', onMensaje);
+      pmExtensionDetectada = true;
+      resolve(true);
+    };
+    window.addEventListener('message', onMensaje);
+    window.postMessage({ origen: 'CREADORA_LANDING_PM', tipo: 'PM_EXT_PING' }, '*');
+    setTimeout(()=>{
+      if(resuelto) return;
+      resuelto = true;
+      window.removeEventListener('message', onMensaje);
+      pmExtensionDetectada = false;
+      resolve(false);
+    }, PM_EXT_TIMEOUT_PING_MS);
+  });
+}
+
+// Le pide a la extensión que lea `url` en segundo plano — devuelve
+// {ok:true, datos:{...}} (mismo formato que espera /piloto-automatico) o
+// {ok:false, error:'...'} si no se pudo (bloqueo, timeout, tienda no
+// soportada por la extensión, etc.). NUNCA tira una excepción: el llamador
+// siempre puede caer al camino del servidor con solo mirar `ok`.
+function pmSolicitarScrapeoConExtension(url){
+  return new Promise((resolve)=>{
+    const requestId = 'pm_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    let resuelto = false;
+    const onMensaje = (evento)=>{
+      if(evento.source !== window) return;
+      const m = evento.data;
+      if(!m || m.origen !== 'CREADORA_LANDING_PM_EXT' || m.tipo !== 'PM_EXT_RESULTADO' || m.requestId !== requestId) return;
+      if(resuelto) return;
+      resuelto = true;
+      window.removeEventListener('message', onMensaje);
+      resolve(m.resultado || { ok:false, error:'la extensión no devolvió ningún resultado' });
+    };
+    window.addEventListener('message', onMensaje);
+    window.postMessage({ origen: 'CREADORA_LANDING_PM', tipo: 'PM_EXT_SCRAPEAR', url, requestId }, '*');
+    setTimeout(()=>{
+      if(resuelto) return;
+      resuelto = true;
+      window.removeEventListener('message', onMensaje);
+      resolve({ ok:false, error:'la extensión tardó demasiado en responder' });
+    }, PM_EXT_TIMEOUT_SCRAPE_MS);
+  });
+}
+
 // ---------------- PRODUCT MARKER (pedido 17/09) ----------------
 // Pegar el link de un producto de una tienda conocida y armar la landing
 // completa sola, DESDE el propio taller (antes hacía falta la extensión de
@@ -3779,11 +3888,61 @@ async function pmIniciarImportacion(){
     precio2Venta: val('pmPrecio2Venta'), precio2Comparacion: val('pmPrecio2Comparacion'),
     precio3Venta: val('pmPrecio3Venta'), precio3Comparacion: val('pmPrecio3Comparacion'),
   };
+  const tieneOfertaManual = !!(precios.precio1Venta || precios.precio2Venta || precios.precio3Venta);
   const btn = document.getElementById('pmImportarBtn');
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = '⏳ Enviando...';
   try{
+    // Fix 28/09: si el link es de una tienda que la extensión sabe leer
+    // (por ahora AliExpress y Amazon, ver PM_EXT_PATRONES_SOPORTADOS) y el
+    // estudiante la tiene instalada, se le pide a ELLA que lea la página en
+    // segundo plano antes de molestar al servidor — ver el bloque "PUENTE
+    // CON LA EXTENSIÓN" más arriba para el porqué (en resumen: Amazon
+    // bloquea menos a una pestaña real del estudiante que al servidor).
+    // Cualquier problema en ESTE intento (no instalada, tardó demasiado, no
+    // encontró título/fotos) cae en silencio al camino de siempre — el
+    // estudiante nunca ve un error por esto, en el peor caso es como si la
+    // extensión no existiera.
+    if(pmLinkSoportadoPorExtension(link) && await pmDetectarExtension()){
+      document.getElementById('pmProgressFill').style.width = '20%';
+      document.getElementById('pmEstadoTexto').textContent = 'Leyendo la página con tu extensión instalada...';
+      pmMostrarEstado('curso');
+      const scrapeo = await pmSolicitarScrapeoConExtension(link);
+      if(scrapeo?.ok && scrapeo.datos?.titulo && Array.isArray(scrapeo.datos.fotos) && scrapeo.datos.fotos.length > 0){
+        document.getElementById('pmProgressFill').style.width = '50%';
+        document.getElementById('pmEstadoTexto').textContent = 'Generando tu landing con IA (puede tardar 1 a 3 minutos)...';
+        const resp = await apiFetch(BACKEND_URL + '/importar-producto/piloto-automatico', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: link,
+            plataforma: scrapeo.datos.plataforma,
+            titulo: tituloPersonalizado || scrapeo.datos.titulo,
+            descripcion: scrapeo.datos.descripcion,
+            fotos: scrapeo.datos.fotos,
+            precioOriginal: scrapeo.datos.precioOriginal,
+            moneda: scrapeo.datos.moneda,
+            resenas: scrapeo.datos.resenas || [],
+            ofertaManual: tieneOfertaManual ? precios : undefined,
+          }),
+        });
+        const data = await resp.json().catch(()=> ({}));
+        if(!resp.ok){
+          throw new Error(data?.message || 'No se pudo generar la landing.');
+        }
+        document.getElementById('pmProgressFill').style.width = '100%';
+        pmMostrarListo(data);
+        if(typeof inicializarDesdeBackend === 'function') inicializarDesdeBackend();
+        return;
+      }
+      // No se pudo por este camino (sin detalle al estudiante — cae abajo,
+      // en silencio, al pedido normal al servidor) — queda un rastro en la
+      // consola por si Norbey necesita revisar por qué no ayudó acá.
+      console.warn('Product Marker: la extensión no pudo leer esta página, se sigue con el pedido normal al servidor:', scrapeo?.error);
+      pmMostrarEstado('form');
+    }
+
     const resp = await apiFetch(BACKEND_URL + '/importar-producto/por-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3799,6 +3958,7 @@ async function pmIniciarImportacion(){
     pmMostrarEstado('curso');
     pmIniciarPolling(data.id);
   }catch(e){
+    pmMostrarEstado('form');
     err.textContent = e?.message || 'No se pudo importar el producto.';
     err.style.display = 'block';
   }finally{
