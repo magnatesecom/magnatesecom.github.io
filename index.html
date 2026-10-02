@@ -11,7 +11,19 @@
 // extensión declare este dominio — es justamente lo que evita que la
 // extensión "escuche" en cualquier otra página que no sea este taller de
 // verdad (ver la nota grande en content-puente-taller.js).
-window.CREADORA_LANDING_TALLER = true;
+//
+// Fix 30/09 (tercera vuelta, la causa real de fondo de TODO este problema):
+// esto antes era `window.CREADORA_LANDING_TALLER = true`, una propiedad
+// puesta directamente sobre `window`. Se probó a fondo con Norbey y se
+// confirmó que una extensión (content script) vive en un "mundo aislado" de
+// JavaScript: comparte el DOM real de la página (puede crear elementos,
+// leer atributos, etc.) pero NO comparte propiedades sueltas puestas sobre
+// `window` — esas quedan invisibles para el content script, así que su
+// chequeo de "¿es esta página el taller de verdad?" SIEMPRE daba falso,
+// sin importar el orden ni el tiempo de espera. Por eso se cambia a un
+// atributo real del DOM (`<html data-creadora-landing-taller="1">`), que sí
+// es visible desde cualquier "mundo" de JavaScript.
+document.documentElement.setAttribute('data-creadora-landing-taller', '1');
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1588,13 +1600,45 @@ window.CREADORA_LANDING_TALLER = true;
              renombrar acá; las que ya traen un nombre real se muestran tal
              cual, sin poder editarlas. Ver 'revisando_resenas' en
              importar-producto.service.ts / pmMostrarRevisionResenas() más
-             abajo. -->
+             abajo.
+             Pedido 01/10: el backend ya NO pausa nunca en 'revisando_resenas'
+             (una reseña anónima ahora se nombra sola con IA, acorde al
+             género que se infiere del texto) — este panel queda sin usar,
+             nunca se va a mostrar, por si hiciera falta volver a pedirle
+             confirmación manual al estudiante más adelante. -->
         <div id="pmRevisando" style="display:none;">
           <p style="font-size:12.5px; color:var(--text-dim); line-height:1.6; margin:0 0 14px;">Encontramos estas reseñas reales en la página de origen. Las que dicen <b>"Anónimo"</b> las podés renombrar antes de crear la landing — las que ya traen un nombre real quedan tal cual.</p>
           <div id="pmResenasLista" style="display:flex; flex-direction:column; gap:14px; margin-bottom:16px; max-height:460px; overflow-y:auto; padding-right:4px;"></div>
           <div id="pmResenasError" class="auth-error" style="display:none;"></div>
           <button type="button" class="btn btn-coral" id="pmConfirmarResenasBtn">Continuar y generar la landing</button>
           <button type="button" class="btn btn-ghost" id="pmCancelarResenasBtn" style="margin-top:8px;">Importar otro link</button>
+        </div>
+
+        <!-- Estado 2.7 (pedido 30/09, pivote — ajustado el 01/10 a pedido de
+             Norbey: "sin tope, tráeme todas"): la extensión ya no corta en
+             ningún número fijo (ver amzExtraerFotosDeResenas en
+             content-amazon.js) — puede traer pocas o muchas, según cuántas
+             tenga el producto. Se le muestran TODAS acá, pero para que la
+             sección de Testimonios de la landing no quede sobrecargada
+             (demasiadas tarjetas de reseña se ven mal y no ayudan a
+             vender), se preseleccionan solo las primeras pocas (ver
+             PM_FOTOS_RESENAS_RECOMENDADAS más abajo) y el estudiante toca
+             cualquier foto para sumarla o sacarla — mismo criterio "elegir
+             con un toque" que pidió, mejorado para escalar bien tanto con 3
+             fotos como con 30. Ver pmMostrarEleccionFotos()/
+             pmDatosPendientesExtension más abajo. -->
+        <div id="pmEligiendoFotos" style="display:none;">
+          <p style="font-size:12.5px; color:var(--text-dim); line-height:1.6; margin:0 0 6px;">Encontramos <b id="pmFotosEncontradasCant"></b> foto(s) real(es) de compradores en las reseñas de este producto (no traían texto real utilizable, así que la IA va a inventar el nombre y el texto de cada tarjeta — la foto sí es 100% real).</p>
+          <p style="font-size:12px; color:var(--text-dim); opacity:0.85; line-height:1.6; margin:0 0 10px;">Para que la sección de Testimonios no quede sobrecargada, te recomendamos usar entre 4 y 8 — dejamos marcadas unas pocas de entrada. Tocá cualquier foto para sumarla o sacarla (si repite una o no corresponde, sacala).</p>
+          <div style="display:flex; gap:14px; margin-bottom:10px;">
+            <button type="button" id="pmFotosSeleccionarTodasBtn" style="background:none; border:none; padding:0; font-size:11.5px; color:var(--coral); text-decoration:underline; cursor:pointer;">Seleccionar todas</button>
+            <button type="button" id="pmFotosQuitarTodasBtn" style="background:none; border:none; padding:0; font-size:11.5px; color:var(--coral); text-decoration:underline; cursor:pointer;">Quitar todas</button>
+          </div>
+          <div id="pmFotosResenasGrid" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:8px;"></div>
+          <p style="font-size:12px; margin:0 0 18px;">Vas a cargar <b id="pmFotosRestantesCant"></b>.<span id="pmFotosAvisoTope" style="color:#c96a6a; display:none;"> Ojo: como máximo se usan 10 — si elegís más, solo se cargan las primeras 10.</span></p>
+          <button type="button" class="btn btn-coral" id="pmConfirmarFotosResenasBtn">Continuar y generar la landing</button>
+          <button type="button" class="btn btn-ghost" id="pmOmitirFotosResenasBtn" style="margin-top:8px;">No usar ninguna foto</button>
+          <button type="button" class="btn btn-ghost" id="pmCancelarFotosResenasBtn" style="margin-top:8px;">Importar otro link</button>
         </div>
 
         <!-- Estado 3: listo -->
@@ -3541,7 +3585,11 @@ document.getElementById('integFalDesconectarBtn').onclick = desconectarFal;
 // Product Marker. El "apretón de manos" (ping/pong) y el pedido de scrapeo
 // viajan como window.postMessage porque la extensión y esta página son
 // mundos separados (content-puente-taller.js del lado de la extensión).
-const PM_EXT_TIMEOUT_PING_MS = 400;
+// Fix 30/09: subido de 400 a 1200 — se encontró que 400ms podía ser
+// insuficiente en algunos casos reales (página local, primera carga), aunque
+// la causa principal de que no respondiera era otro bug ya arreglado en
+// content-puente-taller.js. Se deja este margen extra de todos modos.
+const PM_EXT_TIMEOUT_PING_MS = 1200;
 // Fix 30/09: subido de 30000 a 38000, en línea con el nuevo TIMEOUT_TOTAL_MS
 // (32000) de background.js en la extensión — este número siempre tiene que
 // quedar por encima de ese, si no el taller se rinde y cae al camino viejo
@@ -3549,12 +3597,13 @@ const PM_EXT_TIMEOUT_PING_MS = 400;
 const PM_EXT_TIMEOUT_SCRAPE_MS = 38000;
 // Mismo espíritu que PM_PATRONES_TIENDA_SOPORTADA de más abajo, pero acotado
 // a las tiendas para las que la extensión YA TIENE un scraper propio
-// (content-aliexpress.js, content-amazon.js) — Temu todavía no, así que para
-// Temu Product Marker sigue derecho al camino del servidor aunque la
-// extensión esté instalada.
+// (content-aliexpress.js, content-amazon.js, content-temu.js — desde 01/10
+// las tres, pedido de Norbey: "que funcione igual para las tres, no quiero
+// hacer doble trabajo").
 const PM_EXT_PATRONES_SOPORTADOS = [
   /^https:\/\/([a-z]{2,3}\.)?aliexpress\.com\/item\//i,
   /^https:\/\/(?:www\.)?amazon\.[a-z.]{2,8}\/(?:[^/?#]+\/)*(?:dp|gp\/product)\/[A-Z0-9]{10}(?:[/?]|$)/i,
+  /^https:\/\/(?:www\.)?temu\.com\/(?:[a-z]{2}\/)?(?:[^/?#]+-g-\d+\.html|goods\.html)/i,
 ];
 function pmLinkSoportadoPorExtension(link){
   return PM_EXT_PATRONES_SOPORTADOS.some(regex => regex.test(link));
@@ -3562,32 +3611,43 @@ function pmLinkSoportadoPorExtension(link){
 
 let pmExtensionDetectada = null; // null = todavía no se probó esta sesión
 
-// Le pregunta a la extensión (si está instalada) si está ahí — se cachea el
-// resultado por sesión de pestaña para no repetir el ida-y-vuelta de 400ms
-// en cada importación.
+// Fix 30/09 (segunda vuelta): esto ANTES hablaba con la extensión mandando
+// window.postMessage (ping/pong) y esperando la respuesta como evento de
+// mensaje. En pruebas reales se confirmó que ese mensaje nunca llegaba a
+// responderse en una página abierta como archivo local (file://), a pesar de
+// que la extensión y el content script estaban perfectamente instalados e
+// inyectados — todo indica que es una limitación real de Chrome/Brave
+// entregando window.postMessage entre la página y el "mundo aislado" de un
+// content script en páginas file://. Ver la nota grande en
+// content-puente-taller.js.
+//
+// Ahora, en vez de eventos, se usa el DOM como canal: el content script deja
+// (o no) un <div id="pm-puente-estado"> oculto con dataset.listo = '1' apenas
+// se activa. Acá simplemente se revisa si ese elemento existe, con un
+// setInterval corto, hasta encontrarlo o hasta agotar PM_EXT_TIMEOUT_PING_MS.
+function pmBuscarElementoPuente(id){
+  const el = document.getElementById(id);
+  return el || null;
+}
 function pmDetectarExtension(){
   if(pmExtensionDetectada !== null) return Promise.resolve(pmExtensionDetectada);
   return new Promise((resolve)=>{
-    let resuelto = false;
-    const onMensaje = (evento)=>{
-      if(evento.source !== window) return;
-      const m = evento.data;
-      if(!m || m.origen !== 'CREADORA_LANDING_PM_EXT' || m.tipo !== 'PM_EXT_PONG') return;
-      if(resuelto) return;
-      resuelto = true;
-      window.removeEventListener('message', onMensaje);
-      pmExtensionDetectada = true;
-      resolve(true);
+    const inicio = Date.now();
+    const revisar = ()=>{
+      const el = pmBuscarElementoPuente('pm-puente-estado');
+      if(el && el.dataset.listo === '1'){
+        pmExtensionDetectada = true;
+        resolve(true);
+        return;
+      }
+      if(Date.now() - inicio >= PM_EXT_TIMEOUT_PING_MS){
+        pmExtensionDetectada = false;
+        resolve(false);
+        return;
+      }
+      setTimeout(revisar, 50);
     };
-    window.addEventListener('message', onMensaje);
-    window.postMessage({ origen: 'CREADORA_LANDING_PM', tipo: 'PM_EXT_PING' }, '*');
-    setTimeout(()=>{
-      if(resuelto) return;
-      resuelto = true;
-      window.removeEventListener('message', onMensaje);
-      pmExtensionDetectada = false;
-      resolve(false);
-    }, PM_EXT_TIMEOUT_PING_MS);
+    revisar();
   });
 }
 
@@ -3596,27 +3656,51 @@ function pmDetectarExtension(){
 // {ok:false, error:'...'} si no se pudo (bloqueo, timeout, tienda no
 // soportada por la extensión, etc.). NUNCA tira una excepción: el llamador
 // siempre puede caer al camino del servidor con solo mirar `ok`.
+//
+// Mismo cambio que pmDetectarExtension: en vez de postMessage, escribe el
+// pedido en un <div id="pm-puente-solicitud"> oculto (dataset.url +
+// dataset.requestId) y espera a que el content script deje la respuesta en
+// <div id="pm-puente-resultado"> con ese MISMO requestId (por si hay pedidos
+// viejos superpuestos).
 function pmSolicitarScrapeoConExtension(url){
   return new Promise((resolve)=>{
     const requestId = 'pm_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     let resuelto = false;
-    const onMensaje = (evento)=>{
-      if(evento.source !== window) return;
-      const m = evento.data;
-      if(!m || m.origen !== 'CREADORA_LANDING_PM_EXT' || m.tipo !== 'PM_EXT_RESULTADO' || m.requestId !== requestId) return;
+    let elSolicitud = pmBuscarElementoPuente('pm-puente-solicitud');
+    if(!elSolicitud){
+      elSolicitud = document.createElement('div');
+      elSolicitud.id = 'pm-puente-solicitud';
+      elSolicitud.style.display = 'none';
+      document.body.appendChild(elSolicitud);
+    }
+    const inicio = Date.now();
+    const revisar = ()=>{
       if(resuelto) return;
-      resuelto = true;
-      window.removeEventListener('message', onMensaje);
-      resolve(m.resultado || { ok:false, error:'la extensión no devolvió ningún resultado' });
+      const elResultado = pmBuscarElementoPuente('pm-puente-resultado');
+      if(elResultado && elResultado.dataset.requestId === requestId){
+        resuelto = true;
+        let resultado;
+        try{
+          resultado = JSON.parse(elResultado.dataset.resultado || 'null');
+        }catch(error){
+          resultado = null;
+        }
+        resolve(resultado || { ok:false, error:'la extensión no devolvió ningún resultado' });
+        return;
+      }
+      if(Date.now() - inicio >= PM_EXT_TIMEOUT_SCRAPE_MS){
+        resuelto = true;
+        resolve({ ok:false, error:'la extensión tardó demasiado en responder' });
+        return;
+      }
+      setTimeout(revisar, 200);
     };
-    window.addEventListener('message', onMensaje);
-    window.postMessage({ origen: 'CREADORA_LANDING_PM', tipo: 'PM_EXT_SCRAPEAR', url, requestId }, '*');
-    setTimeout(()=>{
-      if(resuelto) return;
-      resuelto = true;
-      window.removeEventListener('message', onMensaje);
-      resolve({ ok:false, error:'la extensión tardó demasiado en responder' });
-    }, PM_EXT_TIMEOUT_SCRAPE_MS);
+    // Se escribe requestId ANTES que url, y se revisa recién después de
+    // escribir los dos — así el content script (que dispara con cualquiera
+    // de los dos atributos) siempre encuentra ambos ya puestos.
+    elSolicitud.dataset.requestId = requestId;
+    elSolicitud.dataset.url = url;
+    revisar();
   });
 }
 
@@ -3658,12 +3742,21 @@ const PM_JOB_KEY = 'pmTrabajoActivoV1';
 const PM_POLL_MS = 3500;
 
 let pmPollTimer = null;
-let pmVistaEstado = 'form'; // 'form' | 'curso' | 'revisando' | 'listo'
+let pmVistaEstado = 'form'; // 'form' | 'curso' | 'revisando' | 'eligiendo-fotos' | 'listo'
 let pmUltimoResultado = null;
 // Id del trabajo cuyas reseñas se están mostrando en #pmRevisando ahora
 // mismo (pedido 18/09) — lo necesita pmConfirmarResenasBtn para saber a
 // qué importación mandarle los nombres editados.
 let pmIdEnRevision = null;
+// Pedido 30/09 (pivote, séptima vuelta — "que el user escoja cuántas fotos
+// reales de reseñas cargar"): cuando la extensión trae fotos reales pero
+// ninguna reseña con texto real, se PAUSA acá (mismo criterio que
+// pmRevisando para AliExpress) para que el estudiante elija cuántas de esas
+// fotos quiere usar, antes de mandar el pedido pesado/lento a
+// /piloto-automatico. Guarda todo lo que ya se juntó hasta ese punto
+// (scrapeo + campos manuales del formulario) para retomar apenas confirme —
+// ver pmMostrarEleccionFotos/pmConfirmarFotosResenasBtn más abajo.
+let pmDatosPendientesExtension = null;
 
 function pmGuardarTrabajo(job){
   try{ localStorage.setItem(PM_JOB_KEY, JSON.stringify(job)); }catch{}
@@ -3683,6 +3776,7 @@ function pmMostrarEstado(estado){
   document.getElementById('pmFormWrap').style.display = estado === 'form' ? 'block' : 'none';
   document.getElementById('pmEnCurso').style.display = estado === 'curso' ? 'block' : 'none';
   document.getElementById('pmRevisando').style.display = estado === 'revisando' ? 'block' : 'none';
+  document.getElementById('pmEligiendoFotos').style.display = estado === 'eligiendo-fotos' ? 'block' : 'none';
   document.getElementById('pmListo').style.display = estado === 'listo' ? 'block' : 'none';
 }
 
@@ -3820,6 +3914,78 @@ function pmMostrarRevisionResenas(id, resenas){
   pmMostrarEstado('revisando');
 }
 
+// Pedido 30/09 (pivote, séptima vuelta) — ajustado el 01/10 a pedido de
+// Norbey ("sin tope, tráeme todas, pero ¿qué recomendás si trae 50?"): arma
+// la pantalla donde el estudiante elige qué fotos reales cargar. La
+// extensión ya no corta en ningún número fijo (puede traer 3 o 30 según el
+// producto), así que el modelo cambió de "sacá las que sobran" (apagaba mal
+// con muchas: sacar 45 de 50 a mano sería un embole) a "elegí las que
+// querés, ya te dejamos marcadas unas pocas de entrada" — con 3 fotos da
+// igual, con 30 se vuelve mucho más manejable.
+const PM_FOTOS_RESENAS_RECOMENDADAS = 6; // cuántas quedan preseleccionadas de entrada
+const PM_FOTOS_RESENAS_TOPE_BACKEND = 10; // ver MAX_RESENAS_REALES en importar-producto.service.ts
+
+// Todas las fotos reales que encontró la extensión en esta importación (sin
+// recortar) y cuáles de ellas están marcadas ahora mismo — un Set de ÍNDICES
+// sobre pmTodasLasFotosResenas, no de URLs (dos fotos nunca deberían repetir
+// URL después del fix de duplicados, pero un índice es a prueba de eso igual).
+let pmTodasLasFotosResenas = [];
+let pmFotosResenasSeleccionadas = new Set();
+
+function pmMostrarEleccionFotos(fotos){
+  document.getElementById('pmFotosEncontradasCant').textContent = fotos.length;
+  pmTodasLasFotosResenas = fotos.slice();
+  // Preselección: las primeras PM_FOTOS_RESENAS_RECOMENDADAS (Amazon suele
+  // traerlas en orden "más útiles primero") — si trajo menos que eso, van
+  // todas marcadas.
+  pmFotosResenasSeleccionadas = new Set(fotos.slice(0, PM_FOTOS_RESENAS_RECOMENDADAS).map((_, i) => i));
+  pmRenderizarGridFotosResenas();
+  document.getElementById('pmEstadoTexto').textContent = '';
+  pmMostrarEstado('eligiendo-fotos');
+}
+
+// Redibuja la grilla de miniaturas — la marcada muestra un check y queda a
+// toda opacidad, la no marcada queda apagada; un clic en cualquiera alterna
+// su estado. También actualiza el contador y el aviso del tope del backend.
+function pmRenderizarGridFotosResenas(){
+  const grid = document.getElementById('pmFotosResenasGrid');
+  grid.innerHTML = pmTodasLasFotosResenas.map((url, i) => {
+    const marcada = pmFotosResenasSeleccionadas.has(i);
+    return `
+    <div data-foto-idx="${i}" title="${marcada ? 'Tocá para sacarla' : 'Tocá para sumarla'}" style="position:relative; width:72px; height:72px; border-radius:8px; overflow:hidden; flex-shrink:0; background:#ece6d6; cursor:pointer; border:2px solid ${marcada ? 'var(--coral)' : 'transparent'}; opacity:${marcada ? '1' : '0.4'};">
+      <img src="${pmEscHtml(url)}" style="width:100%; height:100%; object-fit:cover; display:block;" loading="lazy">
+      <div style="position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; background:${marcada ? 'var(--coral)' : 'rgba(255,255,255,0.85)'}; color:${marcada ? '#1c1408' : 'transparent'}; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">✓</div>
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('[data-foto-idx]').forEach(el => {
+    el.onclick = () => pmAlternarFotoResena(parseInt(el.dataset.fotoIdx, 10));
+  });
+  const cantidad = pmFotosResenasSeleccionadas.size;
+  document.getElementById('pmFotosRestantesCant').textContent = `${cantidad} de ${pmTodasLasFotosResenas.length}`;
+  document.getElementById('pmFotosAvisoTope').style.display = cantidad > PM_FOTOS_RESENAS_TOPE_BACKEND ? 'inline' : 'none';
+}
+
+function pmAlternarFotoResena(indice){
+  if(pmFotosResenasSeleccionadas.has(indice)) pmFotosResenasSeleccionadas.delete(indice);
+  else pmFotosResenasSeleccionadas.add(indice);
+  pmRenderizarGridFotosResenas();
+}
+
+document.getElementById('pmFotosSeleccionarTodasBtn').onclick = ()=>{
+  pmFotosResenasSeleccionadas = new Set(pmTodasLasFotosResenas.map((_, i) => i));
+  pmRenderizarGridFotosResenas();
+};
+document.getElementById('pmFotosQuitarTodasBtn').onclick = ()=>{
+  pmFotosResenasSeleccionadas = new Set();
+  pmRenderizarGridFotosResenas();
+};
+
+// Las fotos elegidas, en el mismo orden en que se encontraron — se arma al
+// momento de confirmar (ver pmConfirmarFotosResenasBtn más abajo).
+function pmFotosResenasElegidasOrdenadas(){
+  return pmTodasLasFotosResenas.filter((_, i) => pmFotosResenasSeleccionadas.has(i));
+}
+
 // Manda a /resenas/:id/confirmar los nombres editados (en el mismo orden en
 // que se mostraron) y retoma el polling — recién ahí el servidor arranca la
 // parte pesada (generar las secciones con IA).
@@ -3863,6 +4029,81 @@ async function pmConfirmarResenas(){
   }
 }
 
+// Pedido 30/09 (pivote, séptima vuelta): pedido real a /piloto-automatico
+// con los datos que ya trajo la extensión — separado en su propia función
+// porque ahora hay DOS caminos que llegan hasta acá: directo (cuando no
+// había ninguna foto real para elegir) o después de que el estudiante
+// confirmó cuántas fotos quiere usar en el panel de pmEligiendoFotos.
+async function pmGenerarLandingConDatosExtension(link, datos, fotosResenasElegidas, tituloPersonalizado, tieneOfertaManual, precios){
+  pmMostrarEstado('curso');
+  document.getElementById('pmProgressFill').style.width = '50%';
+  document.getElementById('pmEstadoTexto').textContent = 'Generando tu landing con IA (puede tardar 1 a 3 minutos)...';
+  try{
+    const resp = await apiFetch(BACKEND_URL + '/importar-producto/piloto-automatico', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: link,
+        plataforma: datos.plataforma,
+        titulo: tituloPersonalizado || datos.titulo,
+        descripcion: datos.descripcion,
+        fotos: datos.fotos,
+        precioOriginal: datos.precioOriginal,
+        moneda: datos.moneda,
+        resenas: datos.resenas || [],
+        fotosResenas: fotosResenasElegidas || [],
+        ofertaManual: tieneOfertaManual ? precios : undefined,
+      }),
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if(!resp.ok){
+      throw new Error(data?.message || 'No se pudo generar la landing.');
+    }
+    document.getElementById('pmProgressFill').style.width = '100%';
+    pmMostrarListo(data);
+    if(typeof inicializarDesdeBackend === 'function') inicializarDesdeBackend();
+  }catch(e){
+    pmMostrarEstado('form');
+    const err = document.getElementById('pmError');
+    err.textContent = e?.message || 'No se pudo generar la landing.';
+    err.style.display = 'block';
+  }
+}
+
+// Botones del panel "elegí cuántas fotos reales cargar" (pmEligiendoFotos) —
+// los tres retoman pmGenerarLandingConDatosExtension con lo que ya se había
+// guardado en pmDatosPendientesExtension apenas se detectó la pausa.
+document.getElementById('pmConfirmarFotosResenasBtn').onclick = async ()=>{
+  const pendiente = pmDatosPendientesExtension;
+  if(!pendiente) return;
+  // Pedido 01/10: se manda exactamente lo que quedó marcado con un check en
+  // la grilla (ver pmFotosResenasSeleccionadas/pmRenderizarGridFotosResenas) —
+  // el backend igual recorta a MAX_RESENAS_REALES como red de seguridad si
+  // por algo se mandaran más de las que realmente conviene usar.
+  const fotosElegidas = pmFotosResenasElegidasOrdenadas();
+  pmDatosPendientesExtension = null;
+  document.getElementById('pmConfirmarFotosResenasBtn').disabled = true;
+  document.getElementById('pmOmitirFotosResenasBtn').disabled = true;
+  await pmGenerarLandingConDatosExtension(pendiente.link, pendiente.datos, fotosElegidas, pendiente.tituloPersonalizado, pendiente.tieneOfertaManual, pendiente.precios);
+  document.getElementById('pmConfirmarFotosResenasBtn').disabled = false;
+  document.getElementById('pmOmitirFotosResenasBtn').disabled = false;
+};
+document.getElementById('pmOmitirFotosResenasBtn').onclick = async ()=>{
+  const pendiente = pmDatosPendientesExtension;
+  if(!pendiente) return;
+  pmDatosPendientesExtension = null;
+  document.getElementById('pmConfirmarFotosResenasBtn').disabled = true;
+  document.getElementById('pmOmitirFotosResenasBtn').disabled = true;
+  await pmGenerarLandingConDatosExtension(pendiente.link, pendiente.datos, [], pendiente.tituloPersonalizado, pendiente.tieneOfertaManual, pendiente.precios);
+  document.getElementById('pmConfirmarFotosResenasBtn').disabled = false;
+  document.getElementById('pmOmitirFotosResenasBtn').disabled = false;
+};
+document.getElementById('pmCancelarFotosResenasBtn').onclick = ()=>{
+  pmDatosPendientesExtension = null;
+  pmLimpiarFormulario();
+  pmMostrarEstado('form');
+};
+
 async function pmIniciarImportacion(){
   const link = document.getElementById('pmLink').value.trim();
   const err = document.getElementById('pmError');
@@ -3894,12 +4135,13 @@ async function pmIniciarImportacion(){
   btn.disabled = true;
   btn.textContent = '⏳ Enviando...';
   try{
-    // Fix 28/09: si el link es de una tienda que la extensión sabe leer
-    // (por ahora AliExpress y Amazon, ver PM_EXT_PATRONES_SOPORTADOS) y el
-    // estudiante la tiene instalada, se le pide a ELLA que lea la página en
-    // segundo plano antes de molestar al servidor — ver el bloque "PUENTE
-    // CON LA EXTENSIÓN" más arriba para el porqué (en resumen: Amazon
-    // bloquea menos a una pestaña real del estudiante que al servidor).
+    // Fix 28/09 (ampliado 01/10 a Temu): si el link es de una tienda que la
+    // extensión sabe leer (AliExpress, Amazon o Temu — ver
+    // PM_EXT_PATRONES_SOPORTADOS) y el estudiante la tiene instalada, se le
+    // pide a ELLA que lea la página en segundo plano antes de molestar al
+    // servidor — ver el bloque "PUENTE CON LA EXTENSIÓN" más arriba para el
+    // porqué (en resumen: estos sitios bloquean menos a una pestaña real del
+    // estudiante que al servidor).
     // Cualquier problema en ESTE intento (no instalada, tardó demasiado, no
     // encontró título/fotos) cae en silencio al camino de siempre — el
     // estudiante nunca ve un error por esto, en el peor caso es como si la
@@ -3910,30 +4152,20 @@ async function pmIniciarImportacion(){
       pmMostrarEstado('curso');
       const scrapeo = await pmSolicitarScrapeoConExtension(link);
       if(scrapeo?.ok && scrapeo.datos?.titulo && Array.isArray(scrapeo.datos.fotos) && scrapeo.datos.fotos.length > 0){
-        document.getElementById('pmProgressFill').style.width = '50%';
-        document.getElementById('pmEstadoTexto').textContent = 'Generando tu landing con IA (puede tardar 1 a 3 minutos)...';
-        const resp = await apiFetch(BACKEND_URL + '/importar-producto/piloto-automatico', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: link,
-            plataforma: scrapeo.datos.plataforma,
-            titulo: tituloPersonalizado || scrapeo.datos.titulo,
-            descripcion: scrapeo.datos.descripcion,
-            fotos: scrapeo.datos.fotos,
-            precioOriginal: scrapeo.datos.precioOriginal,
-            moneda: scrapeo.datos.moneda,
-            resenas: scrapeo.datos.resenas || [],
-            ofertaManual: tieneOfertaManual ? precios : undefined,
-          }),
-        });
-        const data = await resp.json().catch(()=> ({}));
-        if(!resp.ok){
-          throw new Error(data?.message || 'No se pudo generar la landing.');
+        const fotosResenasEncontradas = Array.isArray(scrapeo.datos.fotosResenas) ? scrapeo.datos.fotosResenas : [];
+        // Pedido 30/09 (pivote, séptima vuelta): si la extensión encontró
+        // fotos reales de reseñas (y no había texto real, que es el único
+        // caso en el que fotosResenas viene con algo — ver amzScrapear en
+        // content-amazon.js), se PAUSA acá para que el estudiante elija
+        // cuántas quiere cargar, en vez de mandarlas todas sin preguntar.
+        // pmDatosPendientesExtension guarda todo lo necesario para retomar
+        // desde pmConfirmarFotosResenasBtn/pmOmitirFotosResenasBtn más abajo.
+        if(fotosResenasEncontradas.length > 0){
+          pmDatosPendientesExtension = { link, datos: scrapeo.datos, tituloPersonalizado, tieneOfertaManual, precios, fotosResenasEncontradas };
+          pmMostrarEleccionFotos(fotosResenasEncontradas);
+          return;
         }
-        document.getElementById('pmProgressFill').style.width = '100%';
-        pmMostrarListo(data);
-        if(typeof inicializarDesdeBackend === 'function') inicializarDesdeBackend();
+        await pmGenerarLandingConDatosExtension(link, scrapeo.datos, [], tituloPersonalizado, tieneOfertaManual, precios);
         return;
       }
       // No se pudo por este camino (sin detalle al estudiante — cae abajo,
@@ -6496,14 +6728,56 @@ document.getElementById('generateBtn').onclick = async ()=>{
     }
   }
 
-  const productImgEl = cePickProductImage();
-  if(!productImgEl){
+  // Pedido 02/10: antes, acá se elegía UNA sola foto de producto (la primera
+  // casilla llena entre Imagen 1/2/3, ver cePickProductImage()) y esa misma
+  // foto se mandaba para TODAS las secciones de la tanda — Imagen 2 e Imagen
+  // 3 quedaban subidas pero la IA nunca las llegaba a ver. Norbey pidió que
+  // si subió varias fotos, se aprovechen de verdad — primero se probó repartir
+  // las fotos por turno (round-robin) entre las secciones, pero Norbey lo
+  // rechazó explícitamente: "quiero que las use según corresponda, según el
+  // contexto de cada sesión... que no la ponga por colocarla". Ahora, cuando
+  // hay más de una foto, se le pregunta a la IA (con visión, mirando las
+  // fotos de verdad) cuál foto corresponde a cada sección según lo que esa
+  // sección necesita mostrar — puede repetir una foto en varias secciones si
+  // de verdad aplica, y puede dejar fotos sin usar. Con una sola foto subida
+  // el comportamiento queda IGUAL que antes (esa única foto para todas las
+  // secciones, sin gastar una llamada extra a la IA).
+  const fotosProductoDisponibles = [1,2,3]
+    .map(n=> document.getElementById('imgSlot'+n)?.querySelector('img')?.src)
+    .filter(Boolean);
+  if(fotosProductoDisponibles.length === 0){
     btnGenerar.disabled = false;
     alert('Sube al menos una foto de producto (Imagen 1, 2 o 3) antes de generar.');
     return;
   }
-  const imagenProductoUrl = productImgEl.src; // data URL base64 — GPT Image 2 la acepta directo, sin subirla a ningún lado antes
-  const colorHex = await obtenerColorAutomaticoProducto(); // ya no se elige a mano: se calcula solo a partir de la(s) foto(s) del producto
+
+  let asignacionFotos = {};
+  if(fotosProductoDisponibles.length > 1){
+    try{
+      const respAsignar = await apiFetch(BACKEND_URL + '/ia/texto/asignar-fotos-secciones', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          nombreProducto: currentProduct || 'Producto',
+          secciones: toGenerate.map(g=> ({
+            id: g.id,
+            sectionLabel: g.sectionLabel,
+            contextoPlantilla: getRealDescripcion(g.sectionKey, g.templateId) || undefined,
+          })),
+          fotos: fotosProductoDisponibles,
+        }),
+      });
+      if(respAsignar.ok){
+        asignacionFotos = await respAsignar.json();
+      }
+    }catch(err){
+      console.error('No se pudo analizar con IA qué foto corresponde a cada sección, se usará la Imagen 1 para todas:', err);
+    }
+  }
+  // Sin cambios acá (pedido explícito de Norbey de no tocar el tema de
+  // colores): obtenerColorAutomaticoProducto() ya combinaba los colores de
+  // TODAS las fotos subidas, no solo de la primera — ver esa función más abajo.
+  const colorHex = await obtenerColorAutomaticoProducto();
   const ficha = realFicha();
 
   const banner = document.getElementById('jobBanner');
@@ -6518,6 +6792,11 @@ document.getElementById('generateBtn').onclick = async ()=>{
   const errores = [];
   let done = 0;
   for(const g of toGenerate){
+    // Índice que decidió la IA mirando el contenido real de cada foto (ver
+    // llamada a /ia/texto/asignar-fotos-secciones más arriba) — si por algún
+    // motivo esa sección no vino en la respuesta, se cae a la Imagen 1.
+    const indiceFoto = asignacionFotos[g.id];
+    const imagenProductoUrl = fotosProductoDisponibles[Number.isInteger(indiceFoto) ? indiceFoto : 0] || fotosProductoDisponibles[0];
     jobText.innerHTML = `Generando <b>${done+1}</b> de <b>${totalTrabajos}</b> — ${g.sectionLabel}...`;
     progress.classList.add('indeterminate'); // no sabemos cuánto falta dentro de cada llamada, así que anima mientras espera
     try{
