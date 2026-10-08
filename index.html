@@ -970,6 +970,25 @@ document.documentElement.setAttribute('data-creadora-landing-taller', '1');
   .price-table th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dimmer); font-weight:700; padding-bottom:8px; }
   .price-table td{ padding:5px 8px 5px 0; font-size:12.5px; color:var(--text-dim); vertical-align:middle; }
   .price-table input{ width:100%; }
+  /* Pedido 08/10 "Modo pack": en vez del texto fijo "1 unidad / 2 unidades / 3 unidades",
+     la columna de la izquierda pasa a tener un campo para escribir cuántas unidades trae
+     cada pack (ej. 16, 32). Su input NO debe pelear con el ancho 100% de los inputs de
+     precio de arriba, por eso tiene su propia clase y ancho fijo. */
+  .pack-unidades-cell{ white-space:nowrap; }
+  .price-table input.pack-unidades-input{ width:58px; text-align:center; display:none; margin-right:5px; }
+  .pack-mode-on .pack-unidades-input{ display:inline-block !important; }
+  .pack-mode-on .pack-unidades-texto{ display:none; }
+  .pack-unidades-sufijo{ display:none; font-size:12.5px; color:var(--text-dim); }
+  .pack-mode-on .pack-unidades-sufijo{ display:inline; }
+  .divisa-label-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .divisa-label-row label{ margin-bottom:0 !important; }
+  .btn-modo-pack{
+    font-family:'IBM Plex Sans'; font-size:11.5px; font-weight:600; padding:4px 11px; cursor:pointer;
+    border-radius:999px; border:1px solid var(--line-strong); background:transparent; color:var(--text-dim);
+    transition:all .15s ease;
+  }
+  .btn-modo-pack:hover{ border-color:var(--coral); color:var(--coral); }
+  .btn-modo-pack.activo{ background:var(--coral); border-color:var(--coral); color:#1a1a1a; }
   /* Tabla de precios del módulo Product Marker (pedido 18/09) — MISMO look
      que .price-table de la Ficha Técnica de arriba, pero con su propia clase
      a propósito: .price-table ya se usa en dos lugares del código (reseteo
@@ -1837,14 +1856,17 @@ document.documentElement.setAttribute('data-creadora-landing-taller', '1');
 
             <div class="field-block" id="ofertaConfigBlock">
               <div class="fb-head"><span class="fb-label">🏷 Configuración para la sección de oferta</span></div>
-              <table class="price-table">
+              <table class="price-table" id="priceTableOferta">
                 <tr><th></th><th>Precio de venta</th><th>Precio de comparación</th></tr>
-                <tr><td>1 unidad</td><td><input type="text" id="fPrecio1Venta" placeholder="0"></td><td><input type="text" id="fPrecio1Comparacion" placeholder="—"></td></tr>
-                <tr><td>2 unidades</td><td><input type="text" id="fPrecio2Venta" placeholder="0"></td><td><input type="text" id="fPrecio2Comparacion" placeholder="—"></td></tr>
-                <tr><td>3 unidades</td><td><input type="text" id="fPrecio3Venta" placeholder="0"></td><td><input type="text" id="fPrecio3Comparacion" placeholder="—"></td></tr>
+                <tr><td class="pack-unidades-cell"><span class="pack-unidades-texto">1 unidad</span><input type="text" inputmode="numeric" maxlength="4" class="pack-unidades-input" id="fUnidades1" placeholder="1" autocomplete="off"><span class="pack-unidades-sufijo">unidades</span></td><td><input type="text" id="fPrecio1Venta" placeholder="0"></td><td><input type="text" id="fPrecio1Comparacion" placeholder="—"></td></tr>
+                <tr><td class="pack-unidades-cell"><span class="pack-unidades-texto">2 unidades</span><input type="text" inputmode="numeric" maxlength="4" class="pack-unidades-input" id="fUnidades2" placeholder="2" autocomplete="off"><span class="pack-unidades-sufijo">unidades</span></td><td><input type="text" id="fPrecio2Venta" placeholder="0"></td><td><input type="text" id="fPrecio2Comparacion" placeholder="—"></td></tr>
+                <tr><td class="pack-unidades-cell"><span class="pack-unidades-texto">3 unidades</span><input type="text" inputmode="numeric" maxlength="4" class="pack-unidades-input" id="fUnidades3" placeholder="3" autocomplete="off"><span class="pack-unidades-sufijo">unidades</span></td><td><input type="text" id="fPrecio3Venta" placeholder="0"></td><td><input type="text" id="fPrecio3Comparacion" placeholder="—"></td></tr>
               </table>
               <div class="field custom-dd-wrap" style="margin:10px 0 0 0;">
-                <label>Divisa</label>
+                <div class="divisa-label-row">
+                  <label>Divisa</label>
+                  <button type="button" class="btn-modo-pack" id="btnModoPack" title="Activalo si vendés packs (ej. 16 o 32 unidades) en vez de 1, 2 y 3 unidades.">📦 Modo pack</button>
+                </div>
                 <button type="button" class="custom-dd-trigger" id="divisaTrigger">Estados Unidos — USD ($)</button>
                 <div class="custom-dd-menu" id="divisaMenu">
                   <input type="text" class="custom-dd-search" placeholder="Buscar..." autocomplete="off">
@@ -6598,6 +6620,29 @@ document.getElementById('userDropdownPerfilBtn').addEventListener('click', (e)=>
 });
 document.addEventListener('click', ()=>{ userDropdownEl.style.display = 'none'; });
 
+// ---------------- Modo pack (pedido 08/10) ----------------
+// Botón "📦 Modo pack" junto a "Divisa": cuando está activo, los textos fijos "1 unidad /
+// 2 unidades / 3 unidades" de la tabla de precios de la oferta pasan a ser campos donde el
+// estudiante escribe cuántas unidades trae cada pack (ej. 16, 32). Apagado, todo queda
+// exactamente igual que antes (los textos fijos, y al backend no le llega nada extra).
+function modoPackActivo(){
+  return document.getElementById('priceTableOferta')?.classList.contains('pack-mode-on') || false;
+}
+function setModoPack(activo){
+  const tabla = document.getElementById('priceTableOferta');
+  const btn = document.getElementById('btnModoPack');
+  if(!tabla || !btn) return;
+  tabla.classList.toggle('pack-mode-on', !!activo);
+  btn.classList.toggle('activo', !!activo);
+  btn.textContent = activo ? '📦 Modo pack: activado' : '📦 Modo pack';
+  if(!activo){ ['fUnidades1','fUnidades2','fUnidades3'].forEach(id=>{ const el = document.getElementById(id); if(el) el.value = ''; }); }
+}
+document.getElementById('btnModoPack')?.addEventListener('click', ()=> setModoPack(!modoPackActivo()));
+// Solo dígitos en los campos de unidades.
+['fUnidades1','fUnidades2','fUnidades3'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('input', e=>{ e.target.value = e.target.value.replace(/\D/g, ''); });
+});
+
 function realFicha(){
   const val = id => (document.getElementById(id)?.value || '').trim();
   const txt = id => (document.getElementById(id)?.textContent || '').trim();
@@ -6623,6 +6668,8 @@ function realFicha(){
       precio2Venta: val('fPrecio2Venta'), precio2Comparacion: val('fPrecio2Comparacion'),
       precio3Venta: val('fPrecio3Venta'), precio3Comparacion: val('fPrecio3Comparacion'),
       divisa: txt('divisaTrigger'),
+      // Modo pack (08/10): solo se mandan las unidades si el botón está activado.
+      ...(modoPackActivo() ? { modoPack: true, unidades1: val('fUnidades1'), unidades2: val('fUnidades2'), unidades3: val('fUnidades3') } : {}),
     },
     logistica: {
       pais: txt('paisLogisticaTrigger'),
@@ -8698,6 +8745,7 @@ function resetWorkspaceForm(){
 
   // Tabla de precios de la oferta
   document.querySelectorAll('.price-table input').forEach(inp=>{ inp.value = ''; });
+  if(typeof setModoPack === 'function') setModoPack(false);
 
   // Dropdowns personalizados de vuelta a su valor por defecto
   if(typeof langTrigger !== 'undefined'){
@@ -8756,6 +8804,7 @@ function capturarFichaActual(){
     precio1Venta: val('fPrecio1Venta'), precio1Comparacion: val('fPrecio1Comparacion'),
     precio2Venta: val('fPrecio2Venta'), precio2Comparacion: val('fPrecio2Comparacion'),
     precio3Venta: val('fPrecio3Venta'), precio3Comparacion: val('fPrecio3Comparacion'),
+    modoPack: modoPackActivo(), unidades1: val('fUnidades1'), unidades2: val('fUnidades2'), unidades3: val('fUnidades3'),
     divisa: txt('divisaTrigger'),
     personajeNacionalidad: val('fPersonajeNacionalidad'),
     personajeSexo: val('fPersonajeSexo'),
@@ -8780,6 +8829,8 @@ function restaurarFichaGuardada(datos){
   setVal('fPrecio1Venta', datos.precio1Venta); setVal('fPrecio1Comparacion', datos.precio1Comparacion);
   setVal('fPrecio2Venta', datos.precio2Venta); setVal('fPrecio2Comparacion', datos.precio2Comparacion);
   setVal('fPrecio3Venta', datos.precio3Venta); setVal('fPrecio3Comparacion', datos.precio3Comparacion);
+  setVal('fUnidades1', datos.unidades1); setVal('fUnidades2', datos.unidades2); setVal('fUnidades3', datos.unidades3);
+  setModoPack(!!datos.modoPack);
   setVal('fPersonajeNacionalidad', datos.personajeNacionalidad);
   setVal('fPersonajeSexo', datos.personajeSexo);
   setVal('fPersonajeEdadDesde', datos.personajeEdadDesde);
@@ -9162,7 +9213,7 @@ function composeOferta(pal, cutout, ficha){
   ctx.fillText(ficha.nombre, margin, 128);
 
   let priceNow='$249.900', priceBefore='$349.900';
-  const inputs = document.querySelectorAll('.price-table input');
+  const inputs = document.querySelectorAll('.price-table input:not(.pack-unidades-input)');
   if(inputs.length>=2 && inputs[0].value) priceNow = '$'+inputs[0].value;
   if(inputs.length>=2 && inputs[1].value) priceBefore = '$'+inputs[1].value;
 
